@@ -1,0 +1,75 @@
+// Prisma Schema pour Reputation OS
+// Base de données: Neon PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle Utilisateur
+model User {
+  id         String     @id @default(cuid())
+  email      String     @unique
+  name       String?
+  plan       String     @default("free") // free, starter, growth, agency
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  businesses Business[]
+}
+
+// Modèle Business (Entreprise/Établissement)
+model Business {
+  id             String   @id @default(cuid())
+  name           String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Intégration Google
+  googlePlaceId  String?  @unique
+  
+  // Configuration IA
+  tone           String?  @default("professionnel") // professionnel, amical, luxe
+  policies       Json?    // Politiques (remboursement, etc.)
+  signature      String?  @default("L'équipe")
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  reviews        Review[]
+}
+
+// Modèle Review (Avis Google)
+model Review {
+  id             String   @id @default(cuid())
+  businessId     String
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  // Données de l'avis
+  googleReviewId String?  @unique
+  content        String   @db.Text
+  rating         Int      // 1-5 étoiles
+  authorName     String
+  authorPhoto    String?
+  reviewDate     DateTime @default(now())
+  
+  // Réponse générée
+  response       String?  @db.Text
+  isReplied      Boolean  @default(false)
+  repliedAt      DateTime?
+  
+  // Analyse IA
+  sentiment      String?  // positif, neutre, negatif
+  topics         Json?    // Liste des sujets identifiés
+  actionRequired Boolean  @default(false)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([businessId])
+  @@index([sentiment])
+  @@index([isReplied])
+}
