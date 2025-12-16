@@ -68,7 +68,6 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
     let locationName = business?.googlePlaceId;
 
-    // Si on n'a pas l'ID, on le cherche
     if (!locationName) {
       console.log("⚠️ Recherche de l'établissement Google...");
       const accountsRes = await oauth2Client.request({ url: 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' });
@@ -80,7 +79,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         const locations = (locationsRes.data as any).locations;
         
         if (locations && locations.length > 0) {
-          locationName = locations[0].name; // Format: accounts/X/locations/Y
+          locationName = locations[0].name;
         }
       }
     }
@@ -92,15 +91,13 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     // 3. 🧠 RÉCUPÉRATION DES INFOS + ADRESSE
     console.log(`📥 Récupération des détails de l'établissement...`);
     
-    // On appelle l'API Business Information
     const infoRes = await oauth2Client.request({
       url: `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=title,profile,primaryCategory,websiteUri,phoneNumbers,storefrontAddress`
     });
     
-    // @ts-ignore - On ignore l'erreur de type strict ici pour faciliter le build
+    // @ts-ignore
     const info = infoRes.data as any;
 
-    // --- Helper pour formater l'adresse ---
     let formattedAddress = null;
     if (info.storefrontAddress) {
       const addr = info.storefrontAddress;
@@ -114,7 +111,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     const googlePhone = info.phoneNumbers?.primaryPhone || null;
     const googleName = info.title || null;
 
-    // Mise à jour de la base de données
+    // Mise à jour de la base de données avec "as any" pour forcer le build
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -124,9 +121,9 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         description: googleDescription,
         website: googleWebsite,
         phone: googlePhone,
-        address: formattedAddress,
+        address: formattedAddress, 
         updatedAt: new Date(),
-      } as any, // <--- 👈 AJOUTEZ CECI EXACTEMENT (Cela force TypeScript à accepter)
+      } as any, // 👈 LE FIX EST ICI
     });
     
     console.log(`✅ Fiche établissement mise à jour : ${googleCategory}`);
@@ -176,7 +173,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
   }
 }
 
-// Fonction pour poster une réponse (inchangée)
+// Fonction pour répondre
 export async function postReplyToGoogle(reviewId: string, reply: string, userId: string) {
   try {
     const review = await prisma.review.findUnique({
