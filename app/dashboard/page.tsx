@@ -138,6 +138,14 @@ export default async function DashboardPage() {
                 </div>
               </button>
 
+                            <Link href="/dashboard/analytics" className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950 transition group">
+                <span className="text-2xl group-hover:scale-110 transition-transform">📊</span>
+                <div className="text-left">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Analytics</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Voir les statistiques</p>
+                </div>
+              </Link>
+
                         <Link href="/dashboard/settings" className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 transition">
                 <span className="text-2xl group-hover:scale-110 transition-transform">⚙️</span>
                 <div className="text-left">
