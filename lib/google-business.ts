@@ -128,19 +128,53 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     
     console.log(`✅ Fiche établissement mise à jour : ${googleCategory}`);
 
-    // 4. Récupération des Avis (Reviews)
-    console.log(`📥 Récupération des avis...`);
-    const reviewsResponse = await oauth2Client.request({
-      url: `https://mybusiness.googleapis.com/v4/${locationName}/reviews?pageSize=50`
-    });
+   // ... (début du fichier identique) ...
 
-    const googleData = reviewsResponse.data as any;
-    const realReviews = googleData.reviews || [];
+    // 4. Récupération des Avis (AVEC PAGINATION POUR L'HISTORIQUE)
+    console.log(`📥 Récupération de l'historique des avis...`);
+    
+    let allReviews: any[] = [];
+    let nextPageToken: string | undefined = undefined;
+    const ONE_YEAR_AGO = new Date();
+    ONE_YEAR_AGO.setFullYear(ONE_YEAR_AGO.getFullYear() - 1);
 
-    // 5. Sauvegarde des avis
+    do {
+      const params: any = {
+        pageSize: 50, // Maximum autorisé par appel
+      };
+      if (nextPageToken) params.pageToken = nextPageToken;
+
+      const reviewsResponse = await oauth2Client.request({
+        url: `https://mybusiness.googleapis.com/v4/${locationName}/reviews`,
+        params: params
+      });
+
+      const data = reviewsResponse.data as any;
+      const pageReviews = data.reviews || [];
+      allReviews = [...allReviews, ...pageReviews];
+      nextPageToken = data.nextPageToken;
+
+      // Optimisation : On s'arrête si le dernier avis récupéré est plus vieux qu'un an
+      if (pageReviews.length > 0) {
+        const lastReviewDate = new Date(pageReviews[pageReviews.length - 1].createTime);
+        if (lastReviewDate < ONE_YEAR_AGO) {
+          console.log("📅 Historique d'un an atteint, arrêt de la synchro.");
+          break; 
+        }
+      }
+
+      // Sécurité anti-boucle infinie (max 10 pages = 500 avis)
+      if (allReviews.length >= 500) break;
+
+    } while (nextPageToken);
+
+    console.log(`✅ ${allReviews.length} avis récupérés au total.`);
+
+    // 5. Sauvegarde des avis (inchangé, mais utilise allReviews)
     let syncedCount = 0;
-    for (const review of realReviews) {
-      const stars = mapRating(review.starRating);
+    for (const review of allReviews) {
+      // ... (code de sauvegarde identique à avant) ...
+       const stars = mapRating(review.starRating);
       
       await prisma.review.upsert({
         where: { googleReviewId: review.reviewId },
@@ -164,6 +198,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       });
       syncedCount++;
     }
+    // ... (fin de fonction identique)
 
     return { synced: syncedCount, errors: [] };
 
