@@ -12,7 +12,7 @@ export async function getCurrentUserWithBusiness(userId: string) {
 
     // Chercher ou créer l'utilisateur dans Prisma
     let user = await prisma.user.findUnique({
-      where: { clerkUserId: userId },
+      where: { id: userId }, // ✅ Correct : on cherche par 'id'
       include: {
         businesses: {
           include: {
@@ -26,7 +26,7 @@ export async function getCurrentUserWithBusiness(userId: string) {
     if (!user) {
       user = await prisma.user.create({
         data: {
-          clerkUserId: userId,
+          id: userId, // ✅ CORRECTION ICI : on utilise 'id' et non 'clerkUserId'
           email: clerkUser.emailAddresses[0]?.emailAddress || "",
           name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "Utilisateur"
         },
