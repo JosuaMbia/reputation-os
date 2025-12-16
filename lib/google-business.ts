@@ -29,9 +29,15 @@ function mapRating(rating: string): number {
  * @param businessId - ID du business dans Prisma
  * @param userId - ID de l'utilisateur Clerk
  */
+// lib/google-business.ts
+
+// ... (Gardez les imports et l'interface GoogleReview comme avant)
+
 export async function syncGoogleReviews(businessId: string, userId: string) {
   try {
-    // 1. Récupérer les tokens de l'utilisateur
+    console.log(`🚀 Démarrage synchro pour Business ID: ${businessId}`);
+
+    // 1. Récupérer les tokens (identique à avant)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -42,16 +48,15 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     });
 
     if (!user?.googleAccessToken) {
-      throw new Error('User not connected to Google');
+      throw new Error('Utilisateur non connecté à Google');
     }
 
-    // 2. Vérifier si le token est expiré et le rafraîchir si nécessaire
+    // 2. Refresh Token si nécessaire (identique à avant)
     let accessToken = user.googleAccessToken;
     if (user.googleTokenExpiry && new Date() > user.googleTokenExpiry && user.googleRefreshToken) {
+      console.log("🔄 Rafraîchissement du token...");
       const newTokens = await refreshAccessToken(user.googleRefreshToken);
       accessToken = newTokens.access_token!;
-      
-      // Mettre à jour les tokens dans la BD
       await prisma.user.update({
         where: { id: userId },
         data: {
@@ -61,140 +66,94 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       });
     }
 
-    // 3. Créer le client authentifié
-    // ✅ CORRECTION ICI : Ajout de "|| undefined" pour gérer le null de Prisma
+    // 3. Créer le client
     const oauth2Client = createAuthenticatedClient(accessToken, user.googleRefreshToken || undefined);
 
-    // 4. Récupérer le Google Place ID du business
+    // 4. Récupérer le ID du business dans notre base
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { googlePlaceId: true },
+      select: { googlePlaceId: true }, // ATTENTION: Doit être 'accounts/X/locations/Y'
     });
 
-    if (!business?.googlePlaceId) {
-      throw new Error('Business Place ID manquant (Format attendu: accounts/{accountId}/locations/{locationId})');
+    // ⚠️ Si googlePlaceId est vide, on essaie de le trouver automatiquement
+    let locationName = business?.googlePlaceId;
+
+    if (!locationName) {
+      console.log("⚠️ Pas de Google Location ID connu, recherche du premier établissement...");
+      // Appel API pour lister les comptes
+      const accountsRes = await oauth2Client.request({ url: 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' });
+      const accounts = (accountsRes.data as any).accounts;
+      
+      if (accounts && accounts.length > 0) {
+        const accountId = accounts[0].name; // ex: accounts/1183...
+        // Appel API pour lister les locations de ce compte
+        const locationsRes = await oauth2Client.request({ url: `https://mybusinessbusinessinformation.googleapis.com/v1/${accountId}/locations` });
+        const locations = (locationsRes.data as any).locations;
+        
+        if (locations && locations.length > 0) {
+          locationName = locations[0].name; // ex: accounts/1183.../locations/456...
+          
+          // On sauvegarde ce précieux ID pour la prochaine fois
+          await prisma.business.update({
+            where: { id: businessId },
+            data: { googlePlaceId: locationName }
+          });
+          console.log(`✅ Business lié trouvé: ${locationName}`);
+        }
+      }
     }
 
-    // 5. Appel à l'API Google My Business pour récupérer les avis
-    const mybusiness = google.mybusinessaccountmanagement({
-      version: 'v1',
-      auth: oauth2Client,
+    if (!locationName) {
+      throw new Error("Impossible de trouver un établissement Google Business associé à ce compte.");
+    }
+
+    console.log(`📥 Récupération des avis pour: ${locationName}`);
+
+    // 5. APPEL RÉEL À L'API POUR LES AVIS
+    // On utilise l'API v4 qui est toujours la référence pour les reviews
+    const reviewsResponse = await oauth2Client.request({
+      url: `https://mybusiness.googleapis.com/v4/${locationName}/reviews?pageSize=50`
     });
 
-    // Note: Le code ci-dessous doit être adapté selon l'API Google Business Profile
-    // L'API a changé récemment. Voici la structure de base:
-    
-    const locationResourceName = business.googlePlaceId;
-    
-    // Exemple d'appel (à adapter selon la documentation Google actuelle)
-    // const response = await mybusiness.accounts.locations.reviews.list({
-    //   parent: locationResourceName,
-    // });
+    const googleData = reviewsResponse.data as any;
+    const realReviews = googleData.reviews || []; // La liste des vrais avis
 
-    // TEMPORAIRE : Pour le développement, on simule des données
-    const mockReviews: GoogleReview[] = [];
+    console.log(`✅ ${realReviews.length} avis récupérés depuis Google.`);
 
-    // 6. Sauvegarder les avis dans Prisma
-    for (const review of mockReviews) {
+    // 6. Sauvegarder dans Prisma
+    let syncedCount = 0;
+    for (const review of realReviews) {
+      // Conversion du format Google
+      const stars = mapRating(review.starRating); // "FIVE" -> 5
+      const date = new Date(review.createTime);
+      
       await prisma.review.upsert({
         where: { googleReviewId: review.reviewId },
         create: {
           businessId,
           googleReviewId: review.reviewId,
-          content: review.comment || '',
-          rating: mapRating(review.starRating),
-          authorName: review.reviewer.displayName,
-          reviewDate: new Date(review.createTime),
-          response: review.reviewReply?.comment,
+          content: review.comment || '(Pas de commentaire)',
+          rating: stars,
+          authorName: review.reviewer.displayName || 'Anonyme',
+          reviewDate: date,
+          response: review.reviewReply?.comment || null,
           isReplied: !!review.reviewReply,
         },
         update: {
-          content: review.comment || '',
-          rating: mapRating(review.starRating),
-          response: review.reviewReply?.comment,
+          content: review.comment || '(Pas de commentaire)',
+          rating: stars,
+          response: review.reviewReply?.comment || null,
           isReplied: !!review.reviewReply,
           updatedAt: new Date(),
         },
       });
+      syncedCount++;
     }
 
-    return { synced: mockReviews.length, errors: [] };
+    return { synced: syncedCount, errors: [] };
 
-  } catch (error) {
-    console.error('Error syncing Google reviews:', error);
-    throw error;
-  }
-}
-
-/**
- * Poster une réponse à un avis Google
- * @param reviewId - ID de l'avis dans Prisma
- * @param reply - Texte de la réponse
- * @param userId - ID de l'utilisateur
- */
-export async function postReplyToGoogle(
-  reviewId: string,
-  reply: string,
-  userId: string
-) {
-  try {
-    // 1. Récupérer l'avis et le business
-    const review = await prisma.review.findUnique({
-      where: { id: reviewId },
-      include: { business: true },
-    });
-
-    if (!review) {
-      throw new Error('Review not found');
-    }
-
-    // 2. Récupérer les tokens de l'utilisateur
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        googleAccessToken: true,
-        googleRefreshToken: true,
-      },
-    });
-
-    if (!user?.googleAccessToken) {
-      throw new Error('User not connected to Google');
-    }
-
-    // 3. Créer le client authentifié
-    // ✅ CORRECTION ICI AUSSI : Ajout de "|| undefined"
-    const oauth2Client = createAuthenticatedClient(
-      user.googleAccessToken,
-      user.googleRefreshToken || undefined
-    );
-
-    // 4. Poster la réponse via l'API Google
-    // const mybusiness = google.mybusinessaccountmanagement({
-    //   version: 'v1',
-    //   auth: oauth2Client,
-    // });
-
-    // await mybusiness.accounts.locations.reviews.updateReply({
-    //   name: `${review.business.googlePlaceId}/reviews/${review.googleReviewId}`,
-    //   requestBody: {
-    //     comment: reply,
-    //   },
-    // });
-
-    // 5. Mettre à jour dans la base de données
-    await prisma.review.update({
-      where: { id: reviewId },
-      data: {
-        response: reply,
-        isReplied: true,
-        repliedAt: new Date(),
-      },
-    });
-
-    return { success: true };
-
-  } catch (error) {
-    console.error('Error posting reply to Google:', error);
+  } catch (error: any) {
+    console.error('❌ Erreur syncGoogleReviews:', error.response?.data || error);
     throw error;
   }
 }
