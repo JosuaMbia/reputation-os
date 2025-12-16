@@ -62,7 +62,8 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     }
 
     // 3. Créer le client authentifié
-    const oauth2Client = createAuthenticatedClient(accessToken, user.googleRefreshToken);
+    // ✅ CORRECTION ICI : Ajout de "|| undefined" pour gérer le null de Prisma
+    const oauth2Client = createAuthenticatedClient(accessToken, user.googleRefreshToken || undefined);
 
     // 4. Récupérer le Google Place ID du business
     const business = await prisma.business.findUnique({
@@ -161,9 +162,10 @@ export async function postReplyToGoogle(
     }
 
     // 3. Créer le client authentifié
+    // ✅ CORRECTION ICI AUSSI : Ajout de "|| undefined"
     const oauth2Client = createAuthenticatedClient(
       user.googleAccessToken,
-      user.googleRefreshToken
+      user.googleRefreshToken || undefined
     );
 
     // 4. Poster la réponse via l'API Google
