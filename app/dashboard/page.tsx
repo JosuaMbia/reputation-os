@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
+import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -103,6 +104,9 @@ export default async function DashboardPage() {
             </button>
           </div>
         </div>
+
+              {/* Informations établissement Google */}
+      <BusinessInfoCard />
       </div>
     </div>
   );
