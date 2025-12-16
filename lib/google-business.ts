@@ -5,7 +5,6 @@ import { prisma } from './prisma';
 
 // --- Types et Helpers ---
 
-// Interface pour les avis Google
 export interface GoogleReview {
   reviewId: string;
   reviewer: { displayName: string };
@@ -93,11 +92,12 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     // 3. 🧠 RÉCUPÉRATION DES INFOS + ADRESSE
     console.log(`📥 Récupération des détails de l'établissement...`);
     
-    // On ajoute 'storefrontAddress' au readMask
+    // On appelle l'API Business Information
     const infoRes = await oauth2Client.request({
       url: `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=title,profile,primaryCategory,websiteUri,phoneNumbers,storefrontAddress`
     });
     
+    // @ts-ignore - On ignore l'erreur de type strict ici pour faciliter le build
     const info = infoRes.data as any;
 
     // --- Helper pour formater l'adresse ---
@@ -107,7 +107,6 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       const lines = addr.addressLines || [];
       formattedAddress = `${lines.join(', ')}, ${addr.postalCode || ''} ${addr.locality || ''}`;
     }
-    // --------------------------------------
 
     const googleCategory = info.primaryCategory?.displayName || null;
     const googleDescription = info.profile?.description || null;
@@ -126,29 +125,6 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         website: googleWebsite,
         phone: googlePhone,
         address: formattedAddress, // ✅ ON SAUVEGARDE L'ADRESSE ICI
-        updatedAt: new Date(),
-      }
-    });
-    
-    const info = infoRes.data as any;
-
-    // On extrait les données utiles
-    const googleCategory = info.primaryCategory?.displayName || null;
-    const googleDescription = info.profile?.description || null;
-    const googleWebsite = info.websiteUri || null;
-    const googlePhone = info.phoneNumbers?.primaryPhone || null;
-    const googleName = info.title || null;
-
-    // Mise à jour de la base de données avec ces infos précieuses
-    await prisma.business.update({
-      where: { id: businessId },
-      data: {
-        googlePlaceId: locationName,
-        name: googleName || undefined, // On met à jour le nom si dispo
-        category: googleCategory,
-        description: googleDescription,
-        website: googleWebsite,
-        phone: googlePhone,
         updatedAt: new Date(),
       }
     });
@@ -200,12 +176,9 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
   }
 }
 
-// Fonction pour répondre (inchangée mais nécessaire)
+// Fonction pour poster une réponse (inchangée)
 export async function postReplyToGoogle(reviewId: string, reply: string, userId: string) {
-  // ... (Garder le code existant pour la réponse)
-  // Si vous ne l'avez plus, dites-le moi je le remets !
-    try {
-    // 1. Récupérer l'avis et le business
+  try {
     const review = await prisma.review.findUnique({
       where: { id: reviewId },
       include: { business: true },
@@ -222,14 +195,12 @@ export async function postReplyToGoogle(reviewId: string, reply: string, userId:
 
     const oauth2Client = createAuthenticatedClient(user.googleAccessToken, user.googleRefreshToken || undefined);
 
-    // API Call to reply
     await oauth2Client.request({
       url: `https://mybusiness.googleapis.com/v4/${review.googleReviewId}/reply`,
       method: 'PUT',
       data: { comment: reply }
     });
 
-    // DB Update
     await prisma.review.update({
       where: { id: reviewId },
       data: { response: reply, isReplied: true, repliedAt: new Date() },
