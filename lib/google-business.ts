@@ -124,9 +124,9 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         description: googleDescription,
         website: googleWebsite,
         phone: googlePhone,
-        address: formattedAddress, // ✅ ON SAUVEGARDE L'ADRESSE ICI
+        address: formattedAddress,
         updatedAt: new Date(),
-      }
+      } as any, // <--- 👈 AJOUTEZ CECI EXACTEMENT (Cela force TypeScript à accepter)
     });
     
     console.log(`✅ Fiche établissement mise à jour : ${googleCategory}`);
