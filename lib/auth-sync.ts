@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function getCurrentUserWithBusiness(userId: string) {
   try {
     // Récupérer l'utilisateur depuis Clerk
-    const clerkUser = await clerkClient().users.getUser(userId);
+    const clerkUser = await (await clerkClient()).users.getUser(userId);
 
     if (!clerkUser) {
       return null;
