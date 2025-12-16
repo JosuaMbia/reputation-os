@@ -81,14 +81,12 @@ export default async function DashboardPage() {
             Actions rapides
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link href="/dashboard/reviews">
-              <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">
+            <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">">
               <span className="text-2xl">💬</span>
               <div className="text-left">
                 <p className="font-medium text-gray-900 dark:text-gray-100">Voir les avis</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Gérer vos avis clients</p>
               </div>
-                          </Link>
             </button>
             <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">
               <span className="text-2xl">🤖</span>
@@ -97,15 +95,13 @@ export default async function DashboardPage() {
                 <p className="text-sm text-gray-600 dark:text-gray-400">Réponses personnalisées</p>
               </div>
             </button>
-            <Link href="/dashboard/settings">
-              <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">
+            <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">
               <span className="text-2xl">⚙️</span>
               <div className="text-left">
                 <p className="font-medium text-gray-900 dark:text-gray-100">Paramètres</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Configurer votre compte</p>
               </div>
             </button>
-                        </Link>
           </div>
         </div>
 
