@@ -90,12 +90,44 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       throw new Error("Impossible de trouver un établissement Google Business associé.");
     }
 
-    // 3. 🧠 RÉCUPÉRATION DES INFOS INTELLIGENTES (Pour l'IA)
+    // 3. 🧠 RÉCUPÉRATION DES INFOS + ADRESSE
     console.log(`📥 Récupération des détails de l'établissement...`);
     
-    // On appelle l'API Business Information
+    // On ajoute 'storefrontAddress' au readMask
     const infoRes = await oauth2Client.request({
-      url: `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=title,profile,primaryCategory,websiteUri,phoneNumbers`
+      url: `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=title,profile,primaryCategory,websiteUri,phoneNumbers,storefrontAddress`
+    });
+    
+    const info = infoRes.data as any;
+
+    // --- Helper pour formater l'adresse ---
+    let formattedAddress = null;
+    if (info.storefrontAddress) {
+      const addr = info.storefrontAddress;
+      const lines = addr.addressLines || [];
+      formattedAddress = `${lines.join(', ')}, ${addr.postalCode || ''} ${addr.locality || ''}`;
+    }
+    // --------------------------------------
+
+    const googleCategory = info.primaryCategory?.displayName || null;
+    const googleDescription = info.profile?.description || null;
+    const googleWebsite = info.websiteUri || null;
+    const googlePhone = info.phoneNumbers?.primaryPhone || null;
+    const googleName = info.title || null;
+
+    // Mise à jour de la base de données
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        googlePlaceId: locationName,
+        name: googleName || undefined,
+        category: googleCategory,
+        description: googleDescription,
+        website: googleWebsite,
+        phone: googlePhone,
+        address: formattedAddress, // ✅ ON SAUVEGARDE L'ADRESSE ICI
+        updatedAt: new Date(),
+      }
     });
     
     const info = infoRes.data as any;

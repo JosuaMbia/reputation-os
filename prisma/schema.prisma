@@ -35,7 +35,8 @@ model Business {
   name           String
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  // NOUVEAU CHAMP
+  address       String?  @db.Text
   // Intégration Google
   googlePlaceId  String?  @unique
   // Champs récupérés de Google
