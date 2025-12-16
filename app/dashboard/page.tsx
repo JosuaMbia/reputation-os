@@ -6,25 +6,41 @@ import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 
 export default async function DashboardPage() {
+  // 1. Vérification Authentification
   const { userId } = await auth();
-
   if (!userId) {
     redirect("/");
   }
 
-  // Récupérer les données utilisateur
-  const userData = await getCurrentUserWithBusiness(userId);
+  // 2. Récupération des données DB (Prisma)
+  const data = await getCurrentUserWithBusiness(userId);
+  const user = data?.user;
+  
+  // On prend le premier business de l'utilisateur (s'il existe)
+  const business = user?.businesses?.[0];
+  const reviews = business?.reviews || [];
 
-  // Statistiques fictives (en attendant l'intégration Google Business API)
-  const stats = {
-    totalReviews: 0,
-    newReviews: 0,
-    avgRating: 0,
-    responseRate: 0
-  };
+  // 3. Calcul des statistiques réelles
+  const totalReviews = reviews.length;
+  
+  // Calcul moyenne
+  const avgRating = totalReviews > 0
+    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1)
+    : "0.0";
+
+  // Calcul taux de réponse
+  const repliedCount = reviews.filter(r => r.isReplied).length;
+  const responseRate = totalReviews > 0
+    ? Math.round((repliedCount / totalReviews) * 100)
+    : 0;
+
+  // Calcul nouveaux avis (ce mois-ci)
+  const currentMonth = new Date().getMonth();
+  const newReviews = reviews.filter(r => new Date(r.reviewDate).getMonth() === currentMonth).length;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      
       {/* Navigation */}
       <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -35,78 +51,110 @@ export default async function DashboardPage() {
                 Reputation OS
               </h1>
             </Link>
-            <div>
-              <UserButton />
+            <div className="flex items-center gap-4">
+               {/* Petit texte de bienvenue dans la nav */}
+               <span className="text-sm text-gray-500 hidden md:block">
+                 {business?.name || "Aucun établissement"}
+               </span>
+               <UserButton />
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Header */}
+      {/* Header Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Bienvenue, {userData?.user?.name || "Utilisateur"}
+          Bienvenue, {user?.name || "Utilisateur"}
         </h2>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Gérez vos avis Google et améliorez votre réputation en ligne.
+          Voici un aperçu des performances de <strong>{business?.name || "votre établissement"}</strong>.
         </p>
       </div>
 
       {/* Stats Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+          
+          {/* Card 1: Total */}
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Avis totaux</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.totalReviews}</p>
+            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{totalReviews}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Nouveaux avis</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.newReviews}</p>
+
+          {/* Card 2: Nouveaux */}
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-green-500">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Nouveaux (ce mois)</h3>
+            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{newReviews}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+
+          {/* Card 3: Moyenne */}
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-yellow-500">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Note moyenne</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.avgRating.toFixed(1)} ⭐</p>
+            <div className="flex items-end gap-2">
+              <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{avgRating}</p>
+              <span className="text-yellow-500 text-xl mb-1">⭐</span>
+            </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+
+          {/* Card 4: Réponse */}
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-purple-500">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Taux de réponse</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.responseRate}%</p>
+            <div className="flex items-center gap-2">
+                <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{responseRate}%</p>
+                {responseRate < 50 && totalReviews > 0 && (
+                    <span className="text-xs text-red-500 mt-3 font-medium">⚠️ Faible</span>
+                )}
+            </div>
           </div>
+
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Actions rapides
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">">
-              <span className="text-2xl">💬</span>
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-gray-100">Voir les avis</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Gérer vos avis clients</p>
-              </div>
-            </button>
-            <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">
-              <span className="text-2xl">🤖</span>
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-gray-100">Générer réponses IA</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Réponses personnalisées</p>
-              </div>
-            </button>
-            <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 transition">
-              <span className="text-2xl">⚙️</span>
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-gray-100">Paramètres</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Configurer votre compte</p>
-              </div>
-            </button>
+      {/* Main Content Area */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Colonne Gauche : Actions Rapides */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              Actions rapides
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              <Link href="/reviews" className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition group">
+                <span className="text-2xl group-hover:scale-110 transition-transform">💬</span>
+                <div className="text-left">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Gérer les avis</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Voir et répondre aux clients</p>
+                </div>
+              </Link>
+
+              <button className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-gray-700 transition group">
+                <span className="text-2xl group-hover:scale-110 transition-transform">🤖</span>
+                <div className="text-left">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Réponses IA</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Configurer le ton et le style</p>
+                </div>
+              </button>
+
+              <Link href="/settings" className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition group">
+                <span className="text-2xl group-hover:scale-110 transition-transform">⚙️</span>
+                <div className="text-left">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Paramètres</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Compte et intégrations</p>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
 
-              {/* Informations établissement Google */}
-      <BusinessInfoCard />
+        {/* Colonne Droite : Info Business (Composant Client) */}
+        <div className="lg:col-span-1">
+             {/* Ce composant gérera la synchro Google côté client si besoin */}
+             <BusinessInfoCard />
+        </div>
+
       </div>
     </div>
   );
