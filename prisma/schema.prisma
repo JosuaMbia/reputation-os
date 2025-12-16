@@ -38,6 +38,11 @@ model Business {
   
   // Intégration Google
   googlePlaceId  String?  @unique
+  // Champs récupérés de Google
+  description   String?  @db.Text    // La description officielle sur Google
+  category      String?              // Ex: "Restaurant Italien"
+  website       String?
+  phone         String?
   
   // Configuration IA
   tone           String?  @default("professionnel") // professionnel, amical, luxe

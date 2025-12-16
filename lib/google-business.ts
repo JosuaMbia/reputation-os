@@ -1,11 +1,11 @@
 // lib/google-business.ts
-// Intégration avec Google Business Profile API
-
 import { google } from 'googleapis';
 import { createAuthenticatedClient, refreshAccessToken } from './google-oauth';
 import { prisma } from './prisma';
 
-// Types Google API
+// --- Types et Helpers ---
+
+// Interface pour les avis Google
 export interface GoogleReview {
   reviewId: string;
   reviewer: { displayName: string };
@@ -16,7 +16,6 @@ export interface GoogleReview {
   reviewReply?: { comment: string };
 }
 
-// Mapper le rating Google vers un nombre
 function mapRating(rating: string): number {
   const map: Record<string, number> = {
     'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5
@@ -24,20 +23,13 @@ function mapRating(rating: string): number {
   return map[rating] || 0;
 }
 
-/**
- * Synchroniser les avis Google pour un business donné
- * @param businessId - ID du business dans Prisma
- * @param userId - ID de l'utilisateur Clerk
- */
-// lib/google-business.ts
-
-// ... (Gardez les imports et l'interface GoogleReview comme avant)
+// --- Fonction Principale ---
 
 export async function syncGoogleReviews(businessId: string, userId: string) {
   try {
-    console.log(`🚀 Démarrage synchro pour Business ID: ${businessId}`);
+    console.log(`🚀 Démarrage synchro complète pour Business ID: ${businessId}`);
 
-    // 1. Récupérer les tokens (identique à avant)
+    // 1. Authentification & Tokens
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -51,7 +43,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       throw new Error('Utilisateur non connecté à Google');
     }
 
-    // 2. Refresh Token si nécessaire (identique à avant)
+    // Refresh Token si nécessaire
     let accessToken = user.googleAccessToken;
     if (user.googleTokenExpiry && new Date() > user.googleTokenExpiry && user.googleRefreshToken) {
       console.log("🔄 Rafraîchissement du token...");
@@ -66,66 +58,84 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       });
     }
 
-    // 3. Créer le client
+    // Création du client Google
     const oauth2Client = createAuthenticatedClient(accessToken, user.googleRefreshToken || undefined);
 
-    // 4. Récupérer le ID du business dans notre base
+    // 2. Récupération / Découverte de l'ID Google (Resource Name)
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { googlePlaceId: true }, // ATTENTION: Doit être 'accounts/X/locations/Y'
+      select: { googlePlaceId: true }, 
     });
 
-    // ⚠️ Si googlePlaceId est vide, on essaie de le trouver automatiquement
     let locationName = business?.googlePlaceId;
 
+    // Si on n'a pas l'ID, on le cherche
     if (!locationName) {
-      console.log("⚠️ Pas de Google Location ID connu, recherche du premier établissement...");
-      // Appel API pour lister les comptes
+      console.log("⚠️ Recherche de l'établissement Google...");
       const accountsRes = await oauth2Client.request({ url: 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' });
       const accounts = (accountsRes.data as any).accounts;
       
       if (accounts && accounts.length > 0) {
-        const accountId = accounts[0].name; // ex: accounts/1183...
-        // Appel API pour lister les locations de ce compte
+        const accountId = accounts[0].name;
         const locationsRes = await oauth2Client.request({ url: `https://mybusinessbusinessinformation.googleapis.com/v1/${accountId}/locations` });
         const locations = (locationsRes.data as any).locations;
         
         if (locations && locations.length > 0) {
-          locationName = locations[0].name; // ex: accounts/1183.../locations/456...
-          
-          // On sauvegarde ce précieux ID pour la prochaine fois
-          await prisma.business.update({
-            where: { id: businessId },
-            data: { googlePlaceId: locationName }
-          });
-          console.log(`✅ Business lié trouvé: ${locationName}`);
+          locationName = locations[0].name; // Format: accounts/X/locations/Y
         }
       }
     }
 
     if (!locationName) {
-      throw new Error("Impossible de trouver un établissement Google Business associé à ce compte.");
+      throw new Error("Impossible de trouver un établissement Google Business associé.");
     }
 
-    console.log(`📥 Récupération des avis pour: ${locationName}`);
+    // 3. 🧠 RÉCUPÉRATION DES INFOS INTELLIGENTES (Pour l'IA)
+    console.log(`📥 Récupération des détails de l'établissement...`);
+    
+    // On appelle l'API Business Information
+    const infoRes = await oauth2Client.request({
+      url: `https://mybusinessbusinessinformation.googleapis.com/v1/${locationName}?readMask=title,profile,primaryCategory,websiteUri,phoneNumbers`
+    });
+    
+    const info = infoRes.data as any;
 
-    // 5. APPEL RÉEL À L'API POUR LES AVIS
-    // On utilise l'API v4 qui est toujours la référence pour les reviews
+    // On extrait les données utiles
+    const googleCategory = info.primaryCategory?.displayName || null;
+    const googleDescription = info.profile?.description || null;
+    const googleWebsite = info.websiteUri || null;
+    const googlePhone = info.phoneNumbers?.primaryPhone || null;
+    const googleName = info.title || null;
+
+    // Mise à jour de la base de données avec ces infos précieuses
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        googlePlaceId: locationName,
+        name: googleName || undefined, // On met à jour le nom si dispo
+        category: googleCategory,
+        description: googleDescription,
+        website: googleWebsite,
+        phone: googlePhone,
+        updatedAt: new Date(),
+      }
+    });
+    
+    console.log(`✅ Fiche établissement mise à jour : ${googleCategory}`);
+
+    // 4. Récupération des Avis (Reviews)
+    console.log(`📥 Récupération des avis...`);
     const reviewsResponse = await oauth2Client.request({
       url: `https://mybusiness.googleapis.com/v4/${locationName}/reviews?pageSize=50`
     });
 
     const googleData = reviewsResponse.data as any;
-    const realReviews = googleData.reviews || []; // La liste des vrais avis
+    const realReviews = googleData.reviews || [];
 
-    console.log(`✅ ${realReviews.length} avis récupérés depuis Google.`);
-
-    // 6. Sauvegarder dans Prisma
+    // 5. Sauvegarde des avis
     let syncedCount = 0;
     for (const review of realReviews) {
-      // Conversion du format Google
-      const stars = mapRating(review.starRating); // "FIVE" -> 5
-      const date = new Date(review.createTime);
+      const stars = mapRating(review.starRating);
       
       await prisma.review.upsert({
         where: { googleReviewId: review.reviewId },
@@ -135,7 +145,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
           content: review.comment || '(Pas de commentaire)',
           rating: stars,
           authorName: review.reviewer.displayName || 'Anonyme',
-          reviewDate: date,
+          reviewDate: new Date(review.createTime),
           response: review.reviewReply?.comment || null,
           isReplied: !!review.reviewReply,
         },
@@ -154,6 +164,49 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
   } catch (error: any) {
     console.error('❌ Erreur syncGoogleReviews:', error.response?.data || error);
+    throw error;
+  }
+}
+
+// Fonction pour répondre (inchangée mais nécessaire)
+export async function postReplyToGoogle(reviewId: string, reply: string, userId: string) {
+  // ... (Garder le code existant pour la réponse)
+  // Si vous ne l'avez plus, dites-le moi je le remets !
+    try {
+    // 1. Récupérer l'avis et le business
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId },
+      include: { business: true },
+    });
+
+    if (!review) throw new Error('Review not found');
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { googleAccessToken: true, googleRefreshToken: true },
+    });
+
+    if (!user?.googleAccessToken) throw new Error('User not connected');
+
+    const oauth2Client = createAuthenticatedClient(user.googleAccessToken, user.googleRefreshToken || undefined);
+
+    // API Call to reply
+    await oauth2Client.request({
+      url: `https://mybusiness.googleapis.com/v4/${review.googleReviewId}/reply`,
+      method: 'PUT',
+      data: { comment: reply }
+    });
+
+    // DB Update
+    await prisma.review.update({
+      where: { id: reviewId },
+      data: { response: reply, isReplied: true, repliedAt: new Date() },
+    });
+
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error posting reply:', error);
     throw error;
   }
 }
