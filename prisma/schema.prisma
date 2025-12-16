@@ -12,14 +12,22 @@ datasource db {
 
 // Modèle Utilisateur
 model User {
-  id         String     @id @default(cuid())
-  email      String     @unique
-  name       String?
-  plan       String     @default("free") // free, starter, growth, agency
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  businesses Business[]
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  name                 String?
+  plan                 String    @default("free")
+  
+  // Tokens Google OAuth
+  googleAccessToken    String?   @db.Text
+  googleRefreshToken   String?   @db.Text
+  googleTokenExpiry    DateTime?
+  
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  businesses           Business[]
 }
+
 
 // Modèle Business (Entreprise/Établissement)
 model Business {
