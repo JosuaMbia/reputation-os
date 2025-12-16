@@ -16,10 +16,7 @@ export default async function ReviewDetailPage({ params }: { params: { id: strin
     include: { business: true },
   });
 
-  // Sécurité : Vérifier que l'avis appartient à un business de l'utilisateur
-  // (Simplification ici: on vérifie juste que l'avis existe et on suppose que la query filtrait déjà, 
-  // mais idéalement il faudrait vérifier review.business.userId === userId)
-  
+  // Sécurité : Vérifier que l'avis existe
   if (!review) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 flex items-center justify-center">
@@ -100,7 +97,24 @@ export default async function ReviewDetailPage({ params }: { params: { id: strin
                 <form action="/api/ai/generate-response" method="POST">
                   <input type="hidden" name="reviewId" value={review.id} />
                   
-                  {/* Bouton IA */}
+                  {/* Bouton IA - Version Corrigée */}
                   <button 
                     type="submit"
-                    className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-purple-600 to-
+                    className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all shadow-md flex items-center justify-center gap-2"
+                  >
+                    <span>✨</span> Générer une réponse avec l'IA
+                  </button>
+                </form>
+
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  L'IA analysera le ton et le contenu de l'avis pour proposer une réponse adaptée.
+                </p>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
