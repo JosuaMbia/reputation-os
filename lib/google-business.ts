@@ -68,11 +68,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
     let locationName = business?.googlePlaceId;
 
-    // ... (début du fichier identique)
-
-    let locationName = business?.googlePlaceId;
-
-    // Si on n'a pas l'ID, on le cherche partout
+    // Si on n'a pas l'ID, on le cherche (SCAN INTELLIGENT TOUS COMPTES)
     if (!locationName) {
       console.log("⚠️ Recherche de l'établissement Google (Scan complet)...");
       
@@ -81,10 +77,9 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       
       console.log(`📂 Comptes trouvés : ${accounts.length}`);
 
-      // 🔄 ON BOUCLE SUR TOUS LES COMPTES (C'est ici la correction)
+      // 🔄 ON BOUCLE SUR TOUS LES COMPTES
       for (const account of accounts) {
         console.log(`🔍 Scan du compte : ${account.name} (${account.accountName})`);
-        
         try {
           const locationsRes = await oauth2Client.request({ 
             url: `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title` 
@@ -93,13 +88,10 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
           const locations = (locationsRes.data as any).locations || [];
           
           if (locations && locations.length > 0) {
-            // On a trouvé !
             const foundLocation = locations[0];
             locationName = foundLocation.name; // Format: accounts/X/locations/Y
             console.log(`🎉 TROUVÉ ! Établissement : ${foundLocation.title} (${locationName})`);
-            
-            // On s'arrête dès qu'on a trouvé un établissement
-            break; 
+            break; // On s'arrête dès qu'on a trouvé
           } else {
             console.log("   -> Aucun établissement dans ce compte.");
           }
@@ -110,11 +102,8 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     }
 
     if (!locationName) {
-      // Message d'erreur plus précis
       throw new Error("Aucun établissement trouvé après avoir scanné tous les comptes Google associés.");
     }
-
-    // ... (La suite du fichier reste identique : Récupération des infos, etc.)
 
     // 3. 🧠 RÉCUPÉRATION DES INFOS + ADRESSE
     console.log(`📥 Récupération des détails de l'établissement...`);
@@ -139,7 +128,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     const googlePhone = info.phoneNumbers?.primaryPhone || null;
     const googleName = info.title || null;
 
-    // Mise à jour de la base de données avec "as any" pour forcer le build
+    // Mise à jour de la base de données (avec le fix "as any")
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -149,14 +138,12 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         description: googleDescription,
         website: googleWebsite,
         phone: googlePhone,
-        address: formattedAddress, 
+        address: formattedAddress,
         updatedAt: new Date(),
-      } as any, // 👈 LE FIX EST ICI
+      } as any, 
     });
     
     console.log(`✅ Fiche établissement mise à jour : ${googleCategory}`);
-
-   // ... (début du fichier identique) ...
 
     // 4. Récupération des Avis (AVEC PAGINATION POUR L'HISTORIQUE)
     console.log(`📥 Récupération de l'historique des avis...`);
@@ -168,7 +155,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
     do {
       const params: any = {
-        pageSize: 50, // Maximum autorisé par appel
+        pageSize: 50,
       };
       if (nextPageToken) params.pageToken = nextPageToken;
 
@@ -198,11 +185,10 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
     console.log(`✅ ${allReviews.length} avis récupérés au total.`);
 
-    // 5. Sauvegarde des avis (inchangé, mais utilise allReviews)
+    // 5. Sauvegarde des avis
     let syncedCount = 0;
     for (const review of allReviews) {
-      // ... (code de sauvegarde identique à avant) ...
-       const stars = mapRating(review.starRating);
+      const stars = mapRating(review.starRating);
       
       await prisma.review.upsert({
         where: { googleReviewId: review.reviewId },
@@ -226,7 +212,6 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       });
       syncedCount++;
     }
-    // ... (fin de fonction identique)
 
     return { synced: syncedCount, errors: [] };
 
@@ -236,7 +221,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
   }
 }
 
-// Fonction pour répondre
+// Fonction pour poster une réponse
 export async function postReplyToGoogle(reviewId: string, reply: string, userId: string) {
   try {
     const review = await prisma.review.findUnique({
