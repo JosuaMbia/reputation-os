@@ -3,16 +3,16 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 
-export default async function ReviewsPage() {
-  const { userId } = auth();
+import { currentUser } from "@clerk/nextjs/server";
+    const user = await currentUser();
   
-  if (!userId) {
+    if (!user) {
     redirect("/sign-in");
   }
 
   // Récupérer les avis de l'établissement de l'utilisateur
   const business = await prisma.business.findUnique({
-    where: { userId },
+        where: { userId: user.id },
     include: {
       reviews: {
         orderBy: { reviewDate: "desc" },
