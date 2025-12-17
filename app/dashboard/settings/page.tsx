@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import { saveSettings } from "@/app/actions/save-settings"; // On importe la vraie action serveur
 
 export default function SettingsPage() {
   const { user } = useUser();
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // Configuration IA
+  // Configuration IA (valeurs par défaut)
   const [tone, setTone] = useState("professionnel");
   const [style, setStyle] = useState("standard");
   const [autoReply, setAutoReply] = useState(false);
@@ -17,12 +18,30 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setLoading(true);
-    // Simuler la sauvegarde (vous devrez implémenter l'API route)
-    setTimeout(() => {
-      setSaved(true);
+    setSaved(false);
+
+    try {
+      // Appel à la Server Action
+      const result = await saveSettings({
+        tone,
+        style,
+        autoReply,
+        includeBusinessName
+      });
+
+      if (result.success) {
+        setSaved(true);
+        // On cache le message de succès après 3 secondes
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        alert("Erreur : " + result.error);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Une erreur est survenue lors de la sauvegarde.");
+    } finally {
       setLoading(false);
-      setTimeout(() => setSaved(false), 3000);
-    }, 1000);
+    }
   };
 
   return (
@@ -30,15 +49,15 @@ export default function SettingsPage() {
       <div className="max-w-4xl mx-auto">
         <Link
           href="/dashboard"
-          className="text-blue-600 hover:underline mb-4 block"
+          className="text-blue-600 hover:underline mb-4 block flex items-center gap-1"
         >
-          ← Retour au Dashboard
+          <span>←</span> Retour au Dashboard
         </Link>
 
         <h1 className="text-3xl font-bold mb-6 dark:text-white">Paramètres</h1>
 
         {/* Section Compte */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6 border border-gray-100 dark:border-gray-700">
           <h2 className="text-xl font-semibold mb-4 dark:text-white">Compte</h2>
           <div className="space-y-4">
             <div>
@@ -49,7 +68,7 @@ export default function SettingsPage() {
                 type="email"
                 value={user?.primaryEmailAddress?.emailAddress || ""}
                 disabled
-                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-white"
+                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed"
               />
             </div>
             <div>
@@ -60,16 +79,16 @@ export default function SettingsPage() {
                 type="text"
                 value={user?.fullName || ""}
                 disabled
-                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-white"
+                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed"
               />
             </div>
           </div>
         </div>
 
         {/* Section Configuration IA */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">
-            🤖 Configuration des réponses IA
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6 border border-gray-100 dark:border-gray-700">
+          <h2 className="text-xl font-semibold mb-4 dark:text-white flex items-center gap-2">
+            <span>🤖</span> Configuration des réponses IA
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
             Personnalisez le ton et le style des réponses générées automatiquement par l'IA.
@@ -84,15 +103,16 @@ export default function SettingsPage() {
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
               >
                 <option value="professionnel">Professionnel</option>
                 <option value="amical">Amical</option>
                 <option value="formel">Formel</option>
                 <option value="décontracté">Décontracté</option>
+                <option value="luxe">Luxe / Haut de gamme</option>
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Le ton détermine comment l'IA s'adresse aux clients
+                Le ton détermine comment l'IA s'adresse aux clients.
               </p>
             </div>
 
@@ -104,87 +124,40 @@ export default function SettingsPage() {
               <select
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
               >
                 <option value="standard">Standard</option>
-                <option value="concis">Concis</option>
-                <option value="détaillé">Détaillé</option>
+                <option value="concis">Concis (Court)</option>
+                <option value="détaillé">Détaillé (Long)</option>
               </select>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                La longueur et le détail des réponses générées
-              </p>
             </div>
 
-            {/* Options */}
-            <div className="space-y-4">
-              <div className="flex items-center">
+            {/* Options Checkboxes */}
+            <div className="space-y-4 pt-2">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  id="includeBusinessName"
                   checked={includeBusinessName}
                   onChange={(e) => setIncludeBusinessName(e.target.checked)}
-                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                 />
-                <label
-                  htmlFor="includeBusinessName"
-                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
-                >
+                <span className="ml-3 text-sm text-gray-700 dark:text-gray-300 select-none">
                   Inclure le nom de l'établissement dans les réponses
-                </label>
-              </div>
+                </span>
+              </label>
 
-              <div className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  id="autoReply"
                   checked={autoReply}
                   onChange={(e) => setAutoReply(e.target.checked)}
-                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                 />
-                <label
-                  htmlFor="autoReply"
-                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
-                >
-                  Réponse automatique (exécute automatiquement les réponses)
-                </label>
-              </div>
+                <span className="ml-3 text-sm text-gray-700 dark:text-gray-300 select-none">
+                  Réponse automatique (l'IA répond seule aux nouveaux avis)
+                </span>
+              </label>
             </div>
 
-            {/* Exemple de réponse */}
-            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                💡 Aperçu d'une réponse avec ces paramètres:
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-                {tone === "professionnel" &&
-                  "Merci pour votre avis. Nous sommes ravis que vous ayez apprécié votre expérience chez nous."}
-                {tone === "amical" &&
-                  "Merci beaucoup ! On est super contents que tu aies passé un bon moment avec nous ! 😊"}
-                {tone === "formel" &&
-                  "Nous vous remercions pour votre retour. Votre satisfaction est notre priorité."}
-                {tone === "décontracté" &&
-                  "Trop cool ! Merci d'avoir pris le temps de nous laisser un avis ! 🙌"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Boutons d'action */}
-        <div className="flex gap-4">
-          <button
-            onClick={handleSave}
-            disabled={loading}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Enregistrement..." : "Enregistrer les modifications"}
-          </button>
-          {saved && (
-            <div className="px-4 py-3 bg-green-100 text-green-700 rounded-lg">
-              ✓ Enregistré avec succès !
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+            {/* Aperçu dynamique */}
+            <div className="mt-6 p
