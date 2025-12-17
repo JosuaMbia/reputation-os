@@ -68,25 +68,53 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
     let locationName = business?.googlePlaceId;
 
+    // ... (début du fichier identique)
+
+    let locationName = business?.googlePlaceId;
+
+    // Si on n'a pas l'ID, on le cherche partout
     if (!locationName) {
-      console.log("⚠️ Recherche de l'établissement Google...");
-      const accountsRes = await oauth2Client.request({ url: 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' });
-      const accounts = (accountsRes.data as any).accounts;
+      console.log("⚠️ Recherche de l'établissement Google (Scan complet)...");
       
-      if (accounts && accounts.length > 0) {
-        const accountId = accounts[0].name;
-        const locationsRes = await oauth2Client.request({ url: `https://mybusinessbusinessinformation.googleapis.com/v1/${accountId}/locations` });
-        const locations = (locationsRes.data as any).locations;
+      const accountsRes = await oauth2Client.request({ url: 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' });
+      const accounts = (accountsRes.data as any).accounts || [];
+      
+      console.log(`📂 Comptes trouvés : ${accounts.length}`);
+
+      // 🔄 ON BOUCLE SUR TOUS LES COMPTES (C'est ici la correction)
+      for (const account of accounts) {
+        console.log(`🔍 Scan du compte : ${account.name} (${account.accountName})`);
         
-        if (locations && locations.length > 0) {
-          locationName = locations[0].name;
+        try {
+          const locationsRes = await oauth2Client.request({ 
+            url: `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title` 
+          });
+          
+          const locations = (locationsRes.data as any).locations || [];
+          
+          if (locations && locations.length > 0) {
+            // On a trouvé !
+            const foundLocation = locations[0];
+            locationName = foundLocation.name; // Format: accounts/X/locations/Y
+            console.log(`🎉 TROUVÉ ! Établissement : ${foundLocation.title} (${locationName})`);
+            
+            // On s'arrête dès qu'on a trouvé un établissement
+            break; 
+          } else {
+            console.log("   -> Aucun établissement dans ce compte.");
+          }
+        } catch (err) {
+          console.warn(`   -> Erreur d'accès au compte ${account.name}, on passe au suivant.`);
         }
       }
     }
 
     if (!locationName) {
-      throw new Error("Impossible de trouver un établissement Google Business associé.");
+      // Message d'erreur plus précis
+      throw new Error("Aucun établissement trouvé après avoir scanné tous les comptes Google associés.");
     }
+
+    // ... (La suite du fichier reste identique : Récupération des infos, etc.)
 
     // 3. 🧠 RÉCUPÉRATION DES INFOS + ADRESSE
     console.log(`📥 Récupération des détails de l'établissement...`);
