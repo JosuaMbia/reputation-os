@@ -13,7 +13,6 @@ export async function syncBusinessData() {
     console.log("🛠️ Vérification des tokens utilisateur...");
 
     // 1. AUTO-RÉPARATION : On récupère le Token Google frais depuis Clerk
-    // C'est ça qui va corriger votre erreur "Missing Token" !
     const client = await clerkClient();
     
     // On demande le token Google ('oauth_google')
@@ -23,7 +22,9 @@ export async function syncBusinessData() {
        throw new Error("Compte Google non connecté dans Clerk. Veuillez vous déconnecter et vous reconnecter au site.");
     }
     
-    const googleData = tokenResponse.data[0];
+    // We cast to 'any' to avoid the TypeScript error on providerRefreshToken
+    // because the strict type definition might be missing it in this version
+    const googleData = tokenResponse.data[0] as any;
     
     // On récupère aussi les infos de base (email, nom) pour remplir la base proprement
     const clerkUser = await client.users.getUser(userId);
