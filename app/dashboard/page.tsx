@@ -4,7 +4,8 @@ import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import { BusinessInfoCard } from '@/components/BusinessInfoCard';
-import { SyncButton } from '@/components/SyncButton'; // ✅ Import du nouveau bouton
+import { SyncButton } from '@/components/SyncButton';
+import { TestSmsButton } from "@/components/test-sms-button"; // 👈 1. NOUVEL IMPORT
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -32,7 +33,6 @@ export default async function DashboardPage() {
             Pour commencer, nous devons connecter votre fiche Google Business existante.
           </p>
           
-          {/* ✅ Utilisation du composant avec barre de chargement */}
           <SyncButton />
           
           <p className="text-xs text-gray-400 mt-6">
@@ -70,6 +70,17 @@ export default async function DashboardPage() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* 👇 2. ZONE DE TEST TECHNIQUE (AJOUTÉE ICI) 👇 */}
+        <div className="lg:col-span-3 p-4 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-800 rounded-lg flex items-center justify-between">
+            <div>
+                <h3 className="font-bold text-indigo-900 dark:text-indigo-100">🛠️ Zone de Test SMS</h3>
+                <p className="text-sm text-indigo-700 dark:text-indigo-300">Validez votre configuration Twilio avant de lancer les campagnes.</p>
+            </div>
+            <TestSmsButton />
+        </div>
+        {/* 👆 FIN ZONE DE TEST 👆 */}
+
         <div className="lg:col-span-2 space-y-6">
            {/* Stats Grid */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
