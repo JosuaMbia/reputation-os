@@ -1,9 +1,9 @@
-// lib/google-business.ts (VERSION DEBUGGING)
+// lib/google-business.ts (DEBUGGING VERSION)
 import { google } from 'googleapis';
 import { createAuthenticatedClient, refreshAccessToken } from './google-oauth';
 import { prisma } from './prisma';
 
-// --- Types et Helpers ---
+// --- Types and Helpers ---
 
 export interface GoogleReview {
   reviewId: string;
@@ -22,13 +22,13 @@ function mapRating(rating: string): number {
   return map[rating] || 0;
 }
 
-// --- Fonction Principale ---
+// --- Main Function ---
 
 export async function syncGoogleReviews(businessId: string, userId: string) {
   try {
-    console.log(`🚀 [SYNC] Démarrage pour Business ID: ${businessId}`);
+    console.log(`🚀 [SYNC] Starting for Business ID: ${businessId}`);
 
-    // 1. Authentification & Tokens
+    // 1. Authentication & Tokens
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -39,13 +39,13 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     });
 
     if (!user?.googleAccessToken) {
-      throw new Error('Utilisateur non connecté à Google (Token manquant)');
+      throw new Error('User not connected to Google (Missing Token)');
     }
 
-    // Refresh Token si nécessaire
+    // Refresh Token if necessary
     let accessToken = user.googleAccessToken;
     if (user.googleTokenExpiry && new Date() > user.googleTokenExpiry && user.googleRefreshToken) {
-      console.log("🔄 [AUTH] Rafraîchissement du token...");
+      console.log("🔄 [AUTH] Refreshing token...");
       try {
         const newTokens = await refreshAccessToken(user.googleRefreshToken);
         accessToken = newTokens.access_token!;
@@ -57,15 +57,15 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
           },
         });
       } catch (e) {
-        console.error("❌ [AUTH] Echec refresh token:", e);
-        throw new Error("Impossible de rafraîchir la connexion Google. Veuillez vous reconnecter.");
+        console.error("❌ [AUTH] Token refresh failed:", e);
+        throw new Error("Unable to refresh Google connection. Please reconnect.");
       }
     }
 
-    // Création du client Google
+    // Create Google Client
     const oauth2Client = createAuthenticatedClient(accessToken, user.googleRefreshToken || undefined);
 
-    // 2. Récupération / Découverte de l'ID Google (Resource Name)
+    // 2. Retrieval / Discovery of Google ID (Resource Name)
     const business = await prisma.business.findUnique({
       where: { id: businessId },
       select: { googlePlaceId: true }, 
@@ -73,28 +73,28 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
     let locationName = business?.googlePlaceId;
 
-    // Si on n'a pas l'ID, on le cherche (SCAN INTELLIGENT TOUS COMPTES)
+    // If ID is missing, search for it (SMART SCAN ALL ACCOUNTS)
     if (!locationName) {
-      console.log("⚠️ [SCAN] Recherche de l'établissement Google...");
+      console.log("⚠️ [SCAN] Searching for Google business listing...");
       
       let accounts: any[] = [];
       try {
         const accountsRes = await oauth2Client.request({ url: 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' });
         accounts = (accountsRes.data as any).accounts || [];
       } catch (e: any) {
-        console.error("❌ [SCAN] Erreur récupération comptes:", e.response?.data || e.message);
-        throw new Error("Impossible de lister vos comptes Google Business. Vérifiez vos droits.");
+        console.error("❌ [SCAN] Account retrieval error:", e.response?.data || e.message);
+        throw new Error("Unable to list your Google Business accounts. Check your permissions.");
       }
       
-      console.log(`📂 [SCAN] Comptes trouvés : ${accounts.length}`);
+      console.log(`📂 [SCAN] Accounts found: ${accounts.length}`);
 
       if (accounts.length === 0) {
-        throw new Error("Aucun compte Google Business Profile trouvé sur cette adresse email.");
+        throw new Error("No Google Business Profile account found for this email address.");
       }
 
-      // 🔄 ON BOUCLE SUR TOUS LES COMPTES
+      // 🔄 LOOP THROUGH ALL ACCOUNTS
       for (const account of accounts) {
-        console.log(`🔍 [SCAN] Compte : ${account.name} (${account.accountName})`);
+        console.log(`🔍 [SCAN] Account: ${account.name} (${account.accountName})`);
         try {
           const locationsRes = await oauth2Client.request({ 
             url: `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title` 
@@ -105,23 +105,23 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
           if (locations && locations.length > 0) {
             const foundLocation = locations[0];
             locationName = foundLocation.name; // Format: accounts/X/locations/Y
-            console.log(`🎉 [SCAN] TROUVÉ ! Établissement : ${foundLocation.title} (${locationName})`);
-            break; // On s'arrête dès qu'on a trouvé
+            console.log(`🎉 [SCAN] FOUND! Listing: ${foundLocation.title} (${locationName})`);
+            break; // Stop as soon as found
           } else {
-            console.log("   -> Vide.");
+            console.log("   -> Empty.");
           }
         } catch (err) {
-          console.warn(`   -> Erreur d'accès au compte ${account.name}, on passe au suivant.`);
+          console.warn(`   -> Error accessing account ${account.name}, moving to next.`);
         }
       }
     }
 
     if (!locationName) {
-      throw new Error("Aucun établissement trouvé après avoir scanné tous les comptes Google associés. Êtes-vous sûr d'être administrateur de la fiche ?");
+      throw new Error("No business listing found after scanning all associated Google accounts. Are you sure you are the listing administrator?");
     }
 
-    // 3. 🧠 RÉCUPÉRATION DES INFOS + ADRESSE
-    console.log(`📥 [INFO] Récupération détails...`);
+    // 3. 🧠 RETRIEVE DETAILS + ADDRESS
+    console.log(`📥 [INFO] Retrieving details...`);
     
     let info: any = {};
     try {
@@ -130,8 +130,8 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         });
         info = infoRes.data as any;
     } catch (e: any) {
-        console.error("❌ [INFO] Erreur détails:", e.response?.data || e.message);
-        throw new Error("Erreur lors de la lecture de la fiche établissement.");
+        console.error("❌ [INFO] Details error:", e.response?.data || e.message);
+        throw new Error("Error reading business listing.");
     }
 
     let formattedAddress = null;
@@ -147,7 +147,7 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
     const googlePhone = info.phoneNumbers?.primaryPhone || null;
     const googleName = info.title || null;
 
-    // Mise à jour de la base de données (avec le fix "as any")
+    // Update database (using 'as any' fix)
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -162,10 +162,10 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
       } as any, 
     });
     
-    console.log(`✅ [DB] Fiche mise à jour : ${googleCategory}`);
+    console.log(`✅ [DB] Listing updated: ${googleCategory}`);
 
-    // 4. Récupération des Avis (AVEC PAGINATION)
-    console.log(`📥 [REVIEWS] Récupération historique...`);
+    // 4. Retrieve Reviews (WITH PAGINATION)
+    console.log(`📥 [REVIEWS] Retrieving history...`);
     
     let allReviews: any[] = [];
     let nextPageToken: string | undefined = undefined;
@@ -189,27 +189,27 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         allReviews = [...allReviews, ...pageReviews];
         nextPageToken = data.nextPageToken;
 
-        // Optimisation : On s'arrête si le dernier avis récupéré est plus vieux qu'un an
+        // Optimization: Stop if the last retrieved review is older than a year
         if (pageReviews.length > 0) {
             const lastReviewDate = new Date(pageReviews[pageReviews.length - 1].createTime);
             if (lastReviewDate < ONE_YEAR_AGO) {
-            console.log("📅 [REVIEWS] Historique d'un an atteint.");
+            console.log("📅 [REVIEWS] One year history reached.");
             break; 
             }
         }
 
-        // Sécurité anti-boucle infinie (max 10 pages = 500 avis)
+        // Infinite loop safety (max 10 pages = 500 reviews)
         if (allReviews.length >= 500) break;
 
         } while (nextPageToken);
     } catch (e:any) {
-        console.warn("⚠️ [REVIEWS] Erreur partielle lors de la récupération des avis (peut-être aucun avis ?) :", e.message);
-        // On ne plante pas tout si les avis échouent, on sauvegarde au moins le business
+        console.warn("⚠️ [REVIEWS] Partial error retrieving reviews (maybe no reviews yet?):", e.message);
+        // Don't crash everything if reviews fail, at least save the business
     }
 
-    console.log(`✅ [REVIEWS] ${allReviews.length} avis récupérés.`);
+    console.log(`✅ [REVIEWS] ${allReviews.length} reviews retrieved.`);
 
-    // 5. Sauvegarde des avis
+    // 5. Save Reviews
     let syncedCount = 0;
     for (const review of allReviews) {
       const stars = mapRating(review.starRating);
@@ -219,15 +219,15 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
         create: {
           businessId,
           googleReviewId: review.reviewId,
-          content: review.comment || '(Pas de commentaire)',
+          content: review.comment || '(No comment)',
           rating: stars,
-          authorName: review.reviewer.displayName || 'Anonyme',
+          authorName: review.reviewer.displayName || 'Anonymous',
           reviewDate: new Date(review.createTime),
           response: review.reviewReply?.comment || null,
           isReplied: !!review.reviewReply,
         },
         update: {
-          content: review.comment || '(Pas de commentaire)',
+          content: review.comment || '(No comment)',
           rating: stars,
           response: review.reviewReply?.comment || null,
           isReplied: !!review.reviewReply,
@@ -241,12 +241,12 @@ export async function syncGoogleReviews(businessId: string, userId: string) {
 
   } catch (error: any) {
     console.error('❌ [CRITICAL ERROR] syncGoogleReviews:', error.response?.data || error);
-    // On relance l'erreur pour que le client sache que ça a planté
+    // Rethrow error so client knows it failed
     throw error;
   }
 }
 
-// Fonction pour poster une réponse
+// Function to post a reply
 export async function postReplyToGoogle(reviewId: string, reply: string, userId: string) {
   try {
     const review = await prisma.review.findUnique({
