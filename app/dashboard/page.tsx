@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 import { SyncButton } from '@/components/SyncButton';
-import { TestSmsButton } from "@/components/test-sms-button"; // 👈 1. NOUVEL IMPORT
+import { TestSmsButton } from "@/components/test-sms-button"; // ✅ Import
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   const user = data?.user;
   const business = user?.businesses?.[0];
 
-  // --- CAS : AUCUN ÉTABLISSEMENT TROUVÉ ---
+  // --- CAS : AUCUN ÉTABLISSEMENT TROUVÉ (L'écran où vous êtes bloqué) ---
   if (!business || !business.googlePlaceId) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -30,20 +30,24 @@ export default async function DashboardPage() {
           <div className="text-5xl mb-6">🚀</div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Bienvenue sur Reputation OS</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">
-            Pour commencer, nous devons connecter votre fiche Google Business existante.
+            En attente de validation Google... En attendant, testons les SMS !
           </p>
           
           <SyncButton />
           
-          <p className="text-xs text-gray-400 mt-6">
-            Cela va scanner votre compte Google pour trouver votre établissement.
-          </p>
+          {/* 👇 J'AI DÉPLACÉ LE BOUTON ICI POUR QUE VOUS PUISSIEZ TESTER 👇 */}
+          <div className="mt-8 pt-6 border-t border-gray-100">
+             <p className="text-sm text-indigo-600 mb-3 font-medium">Zone de Test Technique</p>
+             <TestSmsButton />
+          </div>
+          {/* 👆 FIN DE LA ZONE DE TEST 👆 */}
+
         </div>
       </div>
     );
   }
 
-  // --- CAS NORMAL (Dashboard complet) ---
+  // --- CAS NORMAL (Dashboard complet - Visible plus tard) ---
   const reviews = business.reviews || [];
   const totalReviews = reviews.length;
   
@@ -71,18 +75,16 @@ export default async function DashboardPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* 👇 2. ZONE DE TEST TECHNIQUE (AJOUTÉE ICI) 👇 */}
+        {/* Zone de test aussi visible sur le dashboard principal */}
         <div className="lg:col-span-3 p-4 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-800 rounded-lg flex items-center justify-between">
             <div>
                 <h3 className="font-bold text-indigo-900 dark:text-indigo-100">🛠️ Zone de Test SMS</h3>
-                <p className="text-sm text-indigo-700 dark:text-indigo-300">Validez votre configuration Twilio avant de lancer les campagnes.</p>
+                <p className="text-sm text-indigo-700 dark:text-indigo-300">Validez votre configuration Twilio.</p>
             </div>
             <TestSmsButton />
         </div>
-        {/* 👆 FIN ZONE DE TEST 👆 */}
 
         <div className="lg:col-span-2 space-y-6">
-           {/* Stats Grid */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
                 <div className="text-sm text-gray-500 dark:text-gray-400">Avis Total</div>
@@ -99,7 +101,6 @@ export default async function DashboardPage() {
               </div>
            </div>
            
-           {/* Actions Rapides */}
            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
               <h3 className="font-bold mb-4 dark:text-white">Actions Rapides</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -115,13 +116,6 @@ export default async function DashboardPage() {
                    <div>
                      <div className="font-semibold dark:text-white">Analytics</div>
                      <div className="text-xs text-gray-500 dark:text-gray-400">Voir les stats</div>
-                   </div>
-                </Link>
-                <Link href="/dashboard/settings" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
-                   <span className="text-2xl">⚙️</span>
-                   <div>
-                     <div className="font-semibold dark:text-white">Paramètres</div>
-                     <div className="text-xs text-gray-500 dark:text-gray-400">Configuration</div>
                    </div>
                 </Link>
               </div>
