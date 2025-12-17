@@ -1,6 +1,6 @@
 'use server'
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { syncGoogleReviews } from "@/lib/google-business";
 import { revalidatePath } from "next/cache";
@@ -10,14 +10,53 @@ export async function syncBusinessData() {
   if (!userId) throw new Error("Non authentifié");
 
   try {
-    // 1. On cherche si un business existe déjà
+    console.log("🛠️ Vérification des tokens utilisateur...");
+
+    // 1. AUTO-RÉPARATION : On récupère le Token Google frais depuis Clerk
+    // C'est ça qui va corriger votre erreur "Missing Token" !
+    const client = await clerkClient();
+    
+    // On demande le token Google ('oauth_google')
+    const tokenResponse = await client.users.getUserOauthAccessToken(userId, 'oauth_google');
+    
+    if (tokenResponse.data.length === 0) {
+       throw new Error("Compte Google non connecté dans Clerk. Veuillez vous déconnecter et vous reconnecter au site.");
+    }
+    
+    const googleData = tokenResponse.data[0];
+    
+    // On récupère aussi les infos de base (email, nom) pour remplir la base proprement
+    const clerkUser = await client.users.getUser(userId);
+    const email = clerkUser.emailAddresses[0]?.emailAddress || "no-email@error.com";
+    const name = clerkUser.fullName || clerkUser.firstName || "Utilisateur";
+
+    // 2. On force la sauvegarde de l'utilisateur et de son Token dans Neon
+    await prisma.user.upsert({
+      where: { id: userId },
+      create: {
+        id: userId,
+        email: email,
+        name: name,
+        googleAccessToken: googleData.token,
+        googleRefreshToken: googleData.providerRefreshToken || undefined,
+      },
+      update: {
+        // On met à jour le token à chaque synchro pour être sûr qu'il est valide
+        googleAccessToken: googleData.token,
+        // On ne met à jour le refresh token que s'il est fourni (Google ne le renvoie pas toujours)
+        ...(googleData.providerRefreshToken ? { googleRefreshToken: googleData.providerRefreshToken } : {}),
+      }
+    });
+    
+    console.log("✅ Utilisateur & Tokens synchronisés en BDD !");
+
+    // 3. Gestion du Business (Création si inexistant)
     let business = await prisma.business.findFirst({
       where: { userId: userId }
     });
 
-    // 2. S'il n'existe pas, on le CRÉE
     if (!business) {
-      console.log("🆕 Création du business initial pour l'utilisateur...");
+      console.log("🆕 Création du business initial...");
       business = await prisma.business.create({
         data: {
           userId: userId,
@@ -26,18 +65,16 @@ export async function syncBusinessData() {
       });
     }
 
-    // 3. On lance la synchro
-    console.log(`🔄 Lancement de la synchro pour le business ${business.id}`);
+    // 4. Lancement de la Synchro Google Business
+    console.log(`🔄 Lancement de la synchro Google pour ${business.id}`);
     await syncGoogleReviews(business.id, userId);
 
-    // 4. On rafraîchit la page pour que l'utilisateur voie le résultat
     revalidatePath("/dashboard");
     
     return { success: true };
 
   } catch (error: any) {
     console.error("❌ Erreur Server Action:", error);
-    // On renvoie l'erreur pour que le client puisse l'afficher si besoin
     throw new Error(error.message || "Erreur de synchronisation");
   }
 }
