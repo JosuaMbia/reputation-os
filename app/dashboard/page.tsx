@@ -7,20 +7,16 @@ import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 import { syncBusinessData } from "@/app/actions/sync-business";
 
 export default async function DashboardPage() {
-  // 1. Vérification Authentification
   const { userId } = await auth();
   if (!userId) {
     redirect("/");
   }
 
-  // 2. Récupération des données DB (Prisma)
   const data = await getCurrentUserWithBusiness(userId);
   const user = data?.user;
-  
-  // On prend le premier business de l'utilisateur (s'il existe)
   const business = user?.businesses?.[0];
 
-  // --- CAS : AUCUN ÉTABLISSEMENT TROUVÉ (Pour Joëlle) ---
+  // --- CAS : AUCUN ÉTABLISSEMENT TROUVÉ ---
   if (!business || !business.googlePlaceId) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -53,7 +49,7 @@ export default async function DashboardPage() {
     );
   }
 
-  // 3. Calcul des statistiques (Si connecté)
+  // --- CAS NORMAL ---
   const reviews = business.reviews || [];
   const totalReviews = reviews.length;
   
@@ -71,85 +67,64 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      
-      {/* Navigation */}
-      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🌟</span>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Reputation OS
-              </h1>
-            </Link>
-            <div className="flex items-center gap-4">
-               <span className="text-sm text-gray-500 hidden md:block">
-                 {business?.name}
-               </span>
-               <UserButton />
-            </div>
-          </div>
+      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-xl font-bold text-blue-600">Reputation OS</Link>
+          <span className="text-sm text-gray-500 hidden md:block">{business.name}</span>
         </div>
+        <UserButton />
       </nav>
 
-      {/* Header Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Bienvenue, {user?.name || "Utilisateur"}
-        </h2>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Voici un aperçu des performances de <strong>{business?.name}</strong>.
-        </p>
-      </div>
+      <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
+                <div className="text-sm text-gray-500">Avis Total</div>
+                <div className="text-2xl font-bold dark:text-white">{totalReviews}</div>
+                <div className="text-xs text-green-600">+{newReviews} ce mois</div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-yellow-500">
+                <div className="text-sm text-gray-500">Note Moyenne</div>
+                <div className="text-2xl font-bold dark:text-white">{avgRating} ⭐</div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-purple-500">
+                <div className="text-sm text-gray-500">Taux Réponse</div>
+                <div className="text-2xl font-bold dark:text-white">{responseRate}%</div>
+              </div>
+           </div>
+           
+           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+              <h3 className="font-bold mb-4 dark:text-white">Actions Rapides</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Link href="/dashboard/reviews" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
+                   <span className="text-2xl">💬</span>
+                   <div>
+                     <div className="font-semibold dark:text-white">Gérer les avis</div>
+                     <div className="text-xs text-gray-500">Répondre aux clients</div>
+                   </div>
+                </Link>
+                <Link href="/dashboard/analytics" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
+                   <span className="text-2xl">📊</span>
+                   <div>
+                     <div className="font-semibold dark:text-white">Analytics</div>
+                     <div className="text-xs text-gray-500">Voir les stats</div>
+                   </div>
+                </Link>
+                <Link href="/dashboard/settings" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
+                   <span className="text-2xl">⚙️</span>
+                   <div>
+                     <div className="font-semibold dark:text-white">Paramètres</div>
+                     <div className="text-xs text-gray-500">Configuration</div>
+                   </div>
+                </Link>
+              </div>
+           </div>
+        </div>
 
-      {/* Stats Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Avis totaux</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{totalReviews}</p>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-green-500">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Nouveaux (ce mois)</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{newReviews}</p>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-yellow-500">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Note moyenne</h3>
-            <div className="flex items-end gap-2">
-              <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{avgRating}</p>
-              <span className="text-yellow-500 text-xl mb-1">⭐</span>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-purple-500">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Taux de réponse</h3>
-            <div className="flex items-center gap-2">
-                <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{responseRate}%</p>
-                {responseRate < 50 && totalReviews > 0 && (
-                    <span className="text-xs text-red-500 mt-3 font-medium">⚠️ Faible</span>
-                )}
-            </div>
-          </div>
-
+        <div className="lg:col-span-1">
+          <BusinessInfoCard />
         </div>
       </div>
-
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Colonne Gauche : Actions Rapides */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Actions rapides
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              <Link href="/dashboard/reviews" className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition group">
-                <span className="text-2xl group-hover:scale-110 transition-transform">💬</span>
-                <div className="text-left">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">Gérer les avis</p>
-                  <p className="text-sm text-gray-
+    </div>
+  );
+}
