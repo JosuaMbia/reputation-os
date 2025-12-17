@@ -54,6 +54,7 @@ model Business {
   updatedAt      DateTime @updatedAt
   
   reviews        Review[]
+    aiConfig  AIConfig?
 }
 
 // Modèle Review (Avis Google)
@@ -87,4 +88,33 @@ model Review {
   @@index([sentiment])
   @@index([isReplied])
   // Force update
+}
+
+// Configuration des réponses IA
+model AIConfig {
+  id          String   @id @default(cuid())
+  businessId  String   @unique
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  // Paramètres de ton
+  tone        String   @default("professionnel") // professionnel, amical, formel, décontracté
+  style       String   @default("standard")      // standard, concis, détaillé
+  
+  // Templates par type d'avis
+  positiveTemplate String? @db.Text  // Template pour avis positifs
+  neutralTemplate  String? @db.Text  // Template pour avis neutres
+  negativeTemplate String? @db.Text  // Template pour avis négatifs
+  
+  // Paramètres OpenAI
+  temperature      Float  @default(0.7)  // 0-1, créativité
+  maxTokens        Int    @default(150)  // Longueur max de réponse
+  
+  // Options
+  autoReply        Boolean @default(false) // Réponse automatique
+  includeBusinessName Boolean @default(true)
+  addSignature     Boolean @default(false)
+  signature        String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
