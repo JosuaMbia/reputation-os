@@ -4,7 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import { BusinessInfoCard } from '@/components/BusinessInfoCard';
-import { syncBusinessData } from "@/app/actions/sync-business";
+import { SyncButton } from '@/components/SyncButton'; // ✅ Import du nouveau bouton
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -32,14 +32,8 @@ export default async function DashboardPage() {
             Pour commencer, nous devons connecter votre fiche Google Business existante.
           </p>
           
-          <form action={syncBusinessData}>
-            <button 
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-            >
-              <span>🔄</span> Lancer la détection automatique
-            </button>
-          </form>
+          {/* ✅ Utilisation du composant avec barre de chargement */}
+          <SyncButton />
           
           <p className="text-xs text-gray-400 mt-6">
             Cela va scanner votre compte Google pour trouver votre établissement.
@@ -49,7 +43,7 @@ export default async function DashboardPage() {
     );
   }
 
-  // --- CAS NORMAL ---
+  // --- CAS NORMAL (Dashboard complet) ---
   const reviews = business.reviews || [];
   const totalReviews = reviews.length;
   
@@ -77,22 +71,24 @@ export default async function DashboardPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+           {/* Stats Grid */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
-                <div className="text-sm text-gray-500">Avis Total</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Avis Total</div>
                 <div className="text-2xl font-bold dark:text-white">{totalReviews}</div>
                 <div className="text-xs text-green-600">+{newReviews} ce mois</div>
               </div>
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-yellow-500">
-                <div className="text-sm text-gray-500">Note Moyenne</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Note Moyenne</div>
                 <div className="text-2xl font-bold dark:text-white">{avgRating} ⭐</div>
               </div>
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-purple-500">
-                <div className="text-sm text-gray-500">Taux Réponse</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Taux Réponse</div>
                 <div className="text-2xl font-bold dark:text-white">{responseRate}%</div>
               </div>
            </div>
            
+           {/* Actions Rapides */}
            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
               <h3 className="font-bold mb-4 dark:text-white">Actions Rapides</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -100,21 +96,21 @@ export default async function DashboardPage() {
                    <span className="text-2xl">💬</span>
                    <div>
                      <div className="font-semibold dark:text-white">Gérer les avis</div>
-                     <div className="text-xs text-gray-500">Répondre aux clients</div>
+                     <div className="text-xs text-gray-500 dark:text-gray-400">Répondre aux clients</div>
                    </div>
                 </Link>
                 <Link href="/dashboard/analytics" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
                    <span className="text-2xl">📊</span>
                    <div>
                      <div className="font-semibold dark:text-white">Analytics</div>
-                     <div className="text-xs text-gray-500">Voir les stats</div>
+                     <div className="text-xs text-gray-500 dark:text-gray-400">Voir les stats</div>
                    </div>
                 </Link>
                 <Link href="/dashboard/settings" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
                    <span className="text-2xl">⚙️</span>
                    <div>
                      <div className="font-semibold dark:text-white">Paramètres</div>
-                     <div className="text-xs text-gray-500">Configuration</div>
+                     <div className="text-xs text-gray-500 dark:text-gray-400">Configuration</div>
                    </div>
                 </Link>
               </div>

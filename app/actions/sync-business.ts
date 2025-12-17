@@ -5,8 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { syncGoogleReviews } from "@/lib/google-business";
 import { revalidatePath } from "next/cache";
 
-// ✅ Fix: On ajoute "formData" en argument et on retire le return pour satisfaire TypeScript
-export async function syncBusinessData(formData?: FormData) {
+export async function syncBusinessData() {
   const { userId } = await auth();
   if (!userId) throw new Error("Non authentifié");
 
@@ -31,14 +30,14 @@ export async function syncBusinessData(formData?: FormData) {
     console.log(`🔄 Lancement de la synchro pour le business ${business.id}`);
     await syncGoogleReviews(business.id, userId);
 
-    // 4. On rafraîchit la page
+    // 4. On rafraîchit la page pour que l'utilisateur voie le résultat
     revalidatePath("/dashboard");
     
-    // Note: On ne retourne rien ici pour que la fonction soit compatible avec <form action={...}>
+    return { success: true };
 
   } catch (error: any) {
     console.error("❌ Erreur Server Action:", error);
-    // En cas d'erreur dans un Server Action de formulaire, on log juste côté serveur
-    // L'UI ne sera pas mise à jour, ou vous pourriez utiliser useFormState pour gérer les erreurs plus tard.
+    // On renvoie l'erreur pour que le client puisse l'afficher si besoin
+    throw new Error(error.message || "Erreur de synchronisation");
   }
 }
