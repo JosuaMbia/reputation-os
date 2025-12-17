@@ -10,7 +10,7 @@ export function TestSmsButton() {
     setIsLoading(true)
     // ⚠️ Remplacez par VOTRE numéro de portable perso (Vérifié sur Twilio)
     // Format international obligatoire : +336...
-    const result = await sendTestSms("+33612345678") 
+    const result = await sendTestSms("+33610361032") 
     
     if (result.success) {
       alert(`✅ SMS Envoyé ! SID: ${result.sid}`)
