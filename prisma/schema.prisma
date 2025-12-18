@@ -46,6 +46,12 @@ model Business {
   description   String?  @db.Text
   website       String?
   phone         String?
+
+  // 👇 --- AJOUTS POUR STRIPE --- 👇
+  stripeCustomerId       String?   @unique // L'ID du client chez Stripe
+  stripeSubscriptionId   String?   @unique // L'ID de l'abonnement
+  stripePriceId          String?           // Quel plan il a choisi
+  stripeCurrentPeriodEnd DateTime?         // Date d'expiration (pour savoir quand couper)
   
   // --- 3. Configuration IA (Cerveau) ---
   tone          String   @default("professional") // "professional", "friendly", "empathetic"
