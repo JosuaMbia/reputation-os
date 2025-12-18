@@ -30,45 +30,44 @@ model User {
 
 // Modèle Business (Entreprise/Établissement)
 model Business {
-  id            String   @id @default(cuid())
-  name          String
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String    @id @default(cuid())
+  name           String
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // --- 1. Identité & SEO (Nouveau) ---
-  type          String?  @default("Commerce local") // Ex: "Boulangerie"
-  city          String?  // Ex: "Lyon"
-  seoKeywords   String?  // Ex: "pain bio, sandwich pas cher"
+  // --- 1. Identité & SEO ---
+  type           String?   @default("Commerce local") // Ex: "Boulangerie"
+  city           String?   // Ex: "Lyon"
+  seoKeywords    String?   // Ex: "pain bio, sandwich pas cher"
   
-  // --- 2. Infos Google (Classique) ---
-  googlePlaceId String?  @unique
-  address       String?  @db.Text
-  description   String?  @db.Text
-  website       String?
-  phone         String?
+  // --- 2. Infos Google ---
+  googlePlaceId  String?   @unique
+  address        String?   @db.Text
+  description    String?   @db.Text
+  website        String?
+  phone          String?
 
-  // 👇 --- AJOUTS POUR STRIPE --- 👇
-  stripeCustomerId       String?   @unique // L'ID du client chez Stripe
-  stripeSubscriptionId   String?   @unique // L'ID de l'abonnement
-  stripePriceId          String?           // Quel plan il a choisi
-  stripeCurrentPeriodEnd DateTime?         // Date d'expiration (pour savoir quand couper)
+  // --- 3. Configuration Stripe (Abonnement) ---
+  stripeCustomerId       String?   @unique 
+  stripeSubscriptionId   String?   @unique 
+  stripePriceId          String?           
+  stripeCurrentPeriodEnd DateTime?         
   
-  // 👇 COMPTEUR IA
-  aiUsageCount      Int      @default(0)        // Combien de fois utilisé ?
-  aiUsageLimitDate  DateTime @default(now())    // Date pour savoir quand remettre à zéro (le mois prochain)
-}
+  // --- 4. Compteur IA (Le Vigile) ---
+  aiUsageCount      Int      @default(0)        
+  aiUsageLimitDate  DateTime @default(now())    
 
-  // --- 3. Configuration IA (Cerveau) ---
-  tone          String   @default("professional") // "professional", "friendly", "empathetic"
-  signature     String?  // Ex: "L'équipe du Fournil"
+  // --- 5. Configuration IA (Cerveau) ---
+  tone           String   @default("professional") // "professional", "friendly", "empathetic"
+  signature      String?  // Ex: "L'équipe du Fournil"
   
-  // --- 4. Relations ---
+  // --- 6. Relations ---
   reviews        Review[]
   customers      Customer[]
   reviewRequests ReviewRequest[]
   
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // Modèle Review (Avis Google)
@@ -102,17 +101,17 @@ model Review {
 // --- GESTION DES CLIENTS & CAMPAGNES ---
 
 model Customer {
-  id          String   @id @default(cuid())
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id])
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id])
   
-  name        String
-  phone       String?  
-  email       String?  
-  source      String   @default("MANUAL") 
+  name           String
+  phone          String?  
+  email          String?  
+  source         String    @default("MANUAL") 
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   ReviewRequests ReviewRequest[] 
 
@@ -120,19 +119,19 @@ model Customer {
 }
 
 model ReviewRequest {
-  id          String   @id @default(cuid())
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id])
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id])
   
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id])
+  customerId     String
+  customer       Customer  @relation(fields: [customerId], references: [id])
 
-  channel     RequestChannel 
-  status      RequestStatus  @default(SENT)
-  cost        Float          @default(0.0) 
+  channel        RequestChannel 
+  status         RequestStatus  @default(SENT)
+  cost           Float          @default(0.0) 
 
-  sentAt      DateTime @default(now())
-  clickedAt   DateTime? 
+  sentAt         DateTime @default(now())
+  clickedAt      DateTime? 
 }
 
 enum RequestChannel {
