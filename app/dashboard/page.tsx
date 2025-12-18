@@ -7,7 +7,7 @@ import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 import { SyncButton } from '@/components/SyncButton';
 import { ManualRequestForm } from "@/components/manual-request-form";
 import { QRCodeCard } from "@/components/qr-code-card";
-import { TestAiButton } from "@/components/test-ai-button"; // ✅ 1. Import ajouté
+import { TestAiButton } from "@/components/test-ai-button";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -19,17 +19,14 @@ export default async function DashboardPage() {
   const user = data?.user;
   const business = user?.businesses?.[0];
 
-  // 🚨 AJOUT DE LA REDIRECTION ONBOARDING ICI 🚨
-  // Si l'utilisateur n'a AUCUN business enregistré, il doit passer par la case départ.
+  // 🚨 1. REDIRECTION ONBOARDING (Si aucun business n'est créé)
+  // C'est ici qu'on force les nouveaux utilisateurs à passer par le wizard
   if (!business) {
     redirect("/onboarding");
   }
 
-  // --- CAS 1 : BUSINESS EXISTE MAIS PAS ENCORE VALIDÉ GOOGLE (Écran d'attente) ---
+  // --- CAS 2 : BUSINESS EXISTE MAIS PAS ENCORE VALIDÉ GOOGLE (Écran d'attente) ---
   if (!business.googlePlaceId) {
-
-  // --- CAS 1 : AUCUN ÉTABLISSEMENT TROUVÉ (Écran d'attente) ---
-  if (!business || !business.googlePlaceId) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
         <nav className="absolute top-0 w-full bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
@@ -41,7 +38,7 @@ export default async function DashboardPage() {
           <div className="text-5xl mb-6">🚀</div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Bienvenue sur Reputation OS</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">
-            En attente de validation Google...
+            En attente de validation Google pour <strong>{business.name}</strong>...
           </p>
           
           <div className="max-w-md mx-auto mb-8">
@@ -69,7 +66,7 @@ export default async function DashboardPage() {
                 </div>
              </div>
 
-             {/* ✅ 2. BOUTON TEST IA AJOUTÉ ICI (POUR TESTER IMMÉDIATEMENT) */}
+             {/* BOUTON TEST IA */}
              <div className="max-w-md mx-auto">
                 <TestAiButton />
              </div>
@@ -80,7 +77,7 @@ export default async function DashboardPage() {
     );
   }
 
-  // --- CAS 2 : DASHBOARD COMPLET ---
+  // --- CAS 3 : DASHBOARD COMPLET ---
   const reviews = business.reviews || [];
   const totalReviews = reviews.length;
   
@@ -161,7 +158,7 @@ export default async function DashboardPage() {
             businessName={business.name} 
           />
 
-          {/* ✅ 3. BOUTON TEST IA AJOUTÉ ÉGALEMENT ICI */}
+          {/* BOUTON TEST IA */}
           <TestAiButton />
         </div>
       </div>
