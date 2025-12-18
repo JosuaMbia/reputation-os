@@ -7,10 +7,10 @@ import { Rocket, MapPin, Briefcase, Globe, Building2 } from "lucide-react";
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setLoading(true);
-    // Le formulaire sera envoyé à l'action serveur via l'attribut action du form
-    // Mais on gère le loading state ici
+  // ✅ CORRECTION ICI : On crée un wrapper pour satisfaire TypeScript
+  const handleSubmit = async (formData: FormData) => {
+    // On appelle l'action mais on ignore son résultat pour le moment pour éviter l'erreur de type
+    await createBusiness(formData);
   };
 
   return (
@@ -27,7 +27,8 @@ export default function OnboardingPage() {
         </div>
 
         {/* Formulaire */}
-        <form action={createBusiness} onSubmit={() => setLoading(true)} className="p-8 space-y-6">
+        {/* ✅ CORRECTION ICI : On utilise handleSubmit au lieu de createBusiness directement */}
+        <form action={handleSubmit} onSubmit={() => setLoading(true)} className="p-8 space-y-6">
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
