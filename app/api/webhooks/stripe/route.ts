@@ -7,14 +7,13 @@ import Stripe from "stripe";
 export async function POST(req: Request) {
   const body = await req.text();
   
-  // ✅ CORRECTION ICI : On ajoute (await headers())
+  // On récupère les headers de manière asynchrone (Next.js 15+)
   const headerList = await headers();
   const signature = headerList.get("Stripe-Signature") as string;
 
   let event: Stripe.Event;
 
   try {
-    // 1. Vérification de la signature (Sécurité)
     event = stripe.webhooks.constructEvent(
       body,
       signature,
@@ -26,12 +25,12 @@ export async function POST(req: Request) {
 
   const session = event.data.object as Stripe.Checkout.Session;
 
-  // 2. Gestion des événements
+  // 1. CAS A : Premier paiement réussi (Checkout)
   if (event.type === "checkout.session.completed") {
-    // CAS A : Premier paiement réussi
+    // ✅ CORRECTION ICI : on ajoute "as Stripe.Subscription"
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription as string
-    );
+    ) as Stripe.Subscription;
 
     if (!session?.metadata?.businessId) {
       return new NextResponse("Business ID manquant dans les métadonnées", { status: 400 });
@@ -52,13 +51,13 @@ export async function POST(req: Request) {
     });
   }
 
+  // 2. CAS B : Renouvellement mensuel réussi (Invoice)
   if (event.type === "invoice.payment_succeeded") {
-    // CAS B : Renouvellement mensuel réussi (Automatique)
+    // ✅ CORRECTION ICI : on ajoute "as Stripe.Subscription"
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription as string
-    );
+    ) as Stripe.Subscription;
 
-    // On retrouve le business grâce à l'ID d'abonnement Stripe
     await prisma.business.update({
       where: {
         stripeSubscriptionId: subscription.id,
