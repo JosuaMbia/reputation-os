@@ -19,6 +19,15 @@ export default async function DashboardPage() {
   const user = data?.user;
   const business = user?.businesses?.[0];
 
+  // 🚨 AJOUT DE LA REDIRECTION ONBOARDING ICI 🚨
+  // Si l'utilisateur n'a AUCUN business enregistré, il doit passer par la case départ.
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // --- CAS 1 : BUSINESS EXISTE MAIS PAS ENCORE VALIDÉ GOOGLE (Écran d'attente) ---
+  if (!business.googlePlaceId) {
+
   // --- CAS 1 : AUCUN ÉTABLISSEMENT TROUVÉ (Écran d'attente) ---
   if (!business || !business.googlePlaceId) {
     return (
