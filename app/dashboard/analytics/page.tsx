@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
+import Link from "next/link";
+import { AnalyticsCharts } from "@/components/analytics-charts";
 
 // Fonction utilitaire pour calculer la vélocité
 function calculateVelocity(reviews: any[], days: number) {
@@ -52,6 +54,7 @@ export default async function AnalyticsPage() {
   const SALES_MULTIPLIER = 20; 
   const estSalesAfter = Math.round(reviewsAfter.length * SALES_MULTIPLIER);
   const estSalesBefore = Math.round(reviewsBefore.length * SALES_MULTIPLIER);
+  // Correction: conversion en nombre pour eviter l'erreur de type 'string'
   const salesGrowth = estSalesBefore > 0 ? ((estSalesAfter - estSalesBefore) / estSalesBefore * 100).toFixed(1) : "0";
 
   // 4. Métriques SEO (Taux de réponse)
@@ -69,14 +72,46 @@ export default async function AnalyticsPage() {
   const positiveReviews = reviews.filter(r => r.rating >= 4);
   const negativeReviews = reviews.filter(r => r.rating <= 3);
 
+  // --- DONNÉES POUR LES GRAPHIQUES ---
+  // B. Distribution (Combien de 1, 2, 3, 4, 5 étoiles ?)
+  // On crée un tableau de 5 zéros : [0, 0, 0, 0, 0]
+  // Index 0 = 1 étoile, Index 4 = 5 étoiles
+  const distribution = [0, 0, 0, 0, 0];
+  reviews.forEach(r => {
+    if (r.rating >= 1 && r.rating <= 5) {
+      distribution[r.rating - 1]++;
+    }
+  });
+
+  // C. Évolution (Timeline) - Groupé par mois
+  // Ex: { "Février": 5, "Mars": 12 }
+  const monthsMap: Record<string, number> = {};
+  // Trier les avis par date croissante pour le graphique
+  [...reviews].reverse().forEach(r => {
+    const date = new Date(r.reviewDate);
+    // On formate en "Mois" (ex: "Mars")
+    const monthKey = date.toLocaleString('fr-FR', { month: 'long' }); 
+    monthsMap[monthKey] = (monthsMap[monthKey] || 0) + 1;
+  });
+
+  const timelineLabels = Object.keys(monthsMap); 
+  const timelineData = Object.values(monthsMap);   
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
       <div className="max-w-6xl mx-auto">
         
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Analyse & Performance</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
-          Comparaison sur {daysSinceJoin} jours d'utilisation vs la période précédente.
-        </p>
+        <div className="flex justify-between items-center mb-8">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Analyse & Performance</h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                Comparaison sur {daysSinceJoin} jours d'utilisation vs la période précédente.
+                </p>
+            </div>
+            <Link href="/dashboard" className="text-sm text-indigo-600 hover:text-indigo-800 transition">
+                ← Retour Dashboard
+            </Link>
+        </div>
 
         {/* SECTION 1: ROI & VOLUME (PREUVE DE VALEUR) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -122,6 +157,22 @@ export default async function AnalyticsPage() {
             </div>
             <p className="text-xs text-gray-400 mt-2">Un taux de 100% booste la visibilité Google</p>
           </div>
+        </div>
+        
+        {/* GRAPHIQUES */}
+        <div className="mb-10">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Visualisation des données</h2>
+            {reviews.length > 0 ? (
+                <AnalyticsCharts 
+                    distribution={distribution} 
+                    timelineLabels={timelineLabels} 
+                    timelineData={timelineData}
+                />
+            ) : (
+                <div className="bg-white p-12 text-center rounded-xl border border-dashed text-gray-400">
+                    Pas encore assez de données pour afficher les graphiques.
+                </div>
+            )}
         </div>
 
         {/* SECTION 2: QUALITATIF (CE QUI MARCHE / PÊCHE) */}
