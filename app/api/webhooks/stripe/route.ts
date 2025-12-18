@@ -6,13 +6,15 @@ import Stripe from "stripe";
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const signature = headers().get("Stripe-Signature") as string;
+  
+  // ✅ CORRECTION ICI : On ajoute (await headers())
+  const headerList = await headers();
+  const signature = headerList.get("Stripe-Signature") as string;
 
   let event: Stripe.Event;
 
   try {
     // 1. Vérification de la signature (Sécurité)
-    // Cela garantit que c'est bien Stripe qui nous parle
     event = stripe.webhooks.constructEvent(
       body,
       signature,
