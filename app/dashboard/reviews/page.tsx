@@ -1,19 +1,27 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
+import { ReviewCard } from "@/components/review-card"; // ✅ Le composant intelligent
+import { seedFakeReviews } from "@/app/actions/save-reply"; // ✅ L'action de simulation
 import Link from "next/link";
 
 export default async function ReviewsPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const data = await getCurrentUserWithBusiness(userId);
-  const business = data?.user?.businesses?.[0];
+  // On récupère le business ET ses avis triés par date
+  const business = await prisma.business.findFirst({
+    where: { userId },
+    include: { 
+        reviews: { 
+            orderBy: { reviewDate: 'desc' } 
+        } 
+    }
+  });
 
   if (!business) {
     return (
-      <div className="min-h-screen p-8 text-center">
+      <div className="min-h-screen p-8 text-center flex flex-col items-center justify-center">
         <h1 className="text-2xl font-bold mb-4">Aucun établissement connecté</h1>
         <Link href="/dashboard" className="text-blue-600 hover:underline">
           Retour au dashboard pour synchroniser
@@ -22,60 +30,65 @@ export default async function ReviewsPage() {
     );
   }
 
-  const reviews = await prisma.review.findMany({
-    where: { businessId: business.id },
-    orderBy: { reviewDate: 'desc' },
-  });
+  const reviews = business.reviews || [];
+
+  // Fonction serveur locale pour le bouton de test
+  async function seed() {
+    'use server'
+    await seedFakeReviews();
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        
+        {/* En-tête */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Vos Avis</h1>
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900">
-            ← Retour
+          <div>
+             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Gestion des Avis</h1>
+             <p className="text-gray-500 dark:text-gray-400 mt-1">
+                Pilotez votre e-réputation et répondez avec l'IA.
+             </p>
+          </div>
+          <Link href="/dashboard" className="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 transition">
+            ← Retour Dashboard
           </Link>
         </div>
 
-        <div className="space-y-4">
-          {reviews.length === 0 ? (
-            <div className="bg-white p-8 rounded-lg shadow text-center text-gray-500">
-              Aucun avis trouvé pour le moment.
+        {/* CAS 1 : Aucun avis (Zone de Simulation) */}
+        {reviews.length === 0 && (
+            <div className="bg-white dark:bg-gray-800 p-10 rounded-xl shadow-sm border border-dashed border-gray-300 dark:border-gray-700 text-center">
+                <div className="text-4xl mb-4">🧪</div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Zone de Test Technique</h3>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                    En attendant la validation de votre quota Google API, nous ne pouvons pas récupérer vos vrais avis.
+                    <br/><br/>
+                    Générez 3 faux avis pour tester l'interface et la puissance de l'IA immédiatement.
+                </p>
+                <form action={seed}>
+                    <button 
+                        type="submit" 
+                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-bold transition shadow-lg hover:scale-105 flex items-center gap-2 mx-auto"
+                    >
+                        <span>⚡</span> Générer 3 Avis de Test
+                    </button>
+                </form>
             </div>
-          ) : (
-            reviews.map((review) => (
-              <div key={review.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow hover:shadow-md transition">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-lg dark:text-white">{review.authorName}</h3>
-                    <div className="flex text-yellow-400">
-                      {'★'.repeat(review.rating)}
-                      <span className="text-gray-300">{'★'.repeat(5 - review.rating)}</span>
-                    </div>
-                  </div>
-                  <span className="text-sm text-gray-500">
-                    {new Date(review.reviewDate).toLocaleDateString()}
-                  </span>
-                </div>
-                
-                <p className="text-gray-700 dark:text-gray-300 mb-4">{review.content}</p>
-                
-                {review.isReplied ? (
-                  <div className="bg-green-50 text-green-700 px-3 py-2 rounded text-sm inline-block">
-                    ✅ Répondu
-                  </div>
-                ) : (
-                  <Link 
-                    href={`/dashboard/reviews/${review.id}`}
-                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition inline-block"
-                  >
-                    Répondre avec l'IA
-                  </Link>
-                )}
-              </div>
-            ))
-          )}
+        )}
+
+        {/* CAS 2 : Liste des avis avec ReviewCard */}
+        <div className="space-y-6">
+            {reviews.map((review) => (
+                <ReviewCard 
+                    key={review.id} 
+                    review={{
+                        ...review, 
+                        businessId: business.id // Important pour l'IA
+                    }} 
+                />
+            ))}
         </div>
+
       </div>
     </div>
   );
