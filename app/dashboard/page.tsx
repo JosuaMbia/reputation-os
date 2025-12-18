@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 import { SyncButton } from '@/components/SyncButton';
-import { TestSmsButton } from "@/components/test-sms-button"; // ✅ Import
+import { ManualRequestForm } from "@/components/manual-request-form"; // ✅ Le nouvel import
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   const user = data?.user;
   const business = user?.businesses?.[0];
 
-  // --- CAS : AUCUN ÉTABLISSEMENT TROUVÉ (L'écran où vous êtes bloqué) ---
+  // --- CAS 1 : AUCUN ÉTABLISSEMENT TROUVÉ (Écran d'attente) ---
   if (!business || !business.googlePlaceId) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -30,24 +30,22 @@ export default async function DashboardPage() {
           <div className="text-5xl mb-6">🚀</div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Bienvenue sur Reputation OS</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">
-            En attente de validation Google... En attendant, testons les SMS !
+            En attente de validation Google...
           </p>
           
           <SyncButton />
           
-          {/* 👇 J'AI DÉPLACÉ LE BOUTON ICI POUR QUE VOUS PUISSIEZ TESTER 👇 */}
+          {/* 👇 FORMULAIRE MANUEL INTÉGRÉ ICI 👇 */}
           <div className="mt-8 pt-6 border-t border-gray-100">
-             <p className="text-sm text-indigo-600 mb-3 font-medium">Zone de Test Technique</p>
-             <TestSmsButton />
+             <p className="text-sm text-gray-500 mb-4">En attendant, envoyez votre première invitation :</p>
+             <ManualRequestForm />
           </div>
-          {/* 👆 FIN DE LA ZONE DE TEST 👆 */}
-
         </div>
       </div>
     );
   }
 
-  // --- CAS NORMAL (Dashboard complet - Visible plus tard) ---
+  // --- CAS 2 : DASHBOARD COMPLET ---
   const reviews = business.reviews || [];
   const totalReviews = reviews.length;
   
@@ -75,16 +73,9 @@ export default async function DashboardPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Zone de test aussi visible sur le dashboard principal */}
-        <div className="lg:col-span-3 p-4 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-800 rounded-lg flex items-center justify-between">
-            <div>
-                <h3 className="font-bold text-indigo-900 dark:text-indigo-100">🛠️ Zone de Test SMS</h3>
-                <p className="text-sm text-indigo-700 dark:text-indigo-300">Validez votre configuration Twilio.</p>
-            </div>
-            <TestSmsButton />
-        </div>
-
+        {/* COLONNE GAUCHE (Stats + Actions) */}
         <div className="lg:col-span-2 space-y-6">
+           {/* Stats Grid */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
                 <div className="text-sm text-gray-500 dark:text-gray-400">Avis Total</div>
@@ -101,6 +92,7 @@ export default async function DashboardPage() {
               </div>
            </div>
            
+           {/* Actions Rapides */}
            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
               <h3 className="font-bold mb-4 dark:text-white">Actions Rapides</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -122,8 +114,12 @@ export default async function DashboardPage() {
            </div>
         </div>
 
-        <div className="lg:col-span-1">
+        {/* COLONNE DROITE (Infos + Outils) */}
+        <div className="lg:col-span-1 space-y-6">
           <BusinessInfoCard />
+          
+          {/* 👇 FORMULAIRE PLACÉ ICI DANS LE DASHBOARD 👇 */}
+          <ManualRequestForm />
         </div>
       </div>
     </div>
