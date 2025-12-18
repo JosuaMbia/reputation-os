@@ -53,6 +53,11 @@ model Business {
   stripePriceId          String?           // Quel plan il a choisi
   stripeCurrentPeriodEnd DateTime?         // Date d'expiration (pour savoir quand couper)
   
+  // 👇 COMPTEUR IA
+  aiUsageCount      Int      @default(0)        // Combien de fois utilisé ?
+  aiUsageLimitDate  DateTime @default(now())    // Date pour savoir quand remettre à zéro (le mois prochain)
+}
+
   // --- 3. Configuration IA (Cerveau) ---
   tone          String   @default("professional") // "professional", "friendly", "empathetic"
   signature     String?  // Ex: "L'équipe du Fournil"

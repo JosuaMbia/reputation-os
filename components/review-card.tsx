@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from "react";
-import { generateReviewReply } from "@/lib/ai-response"; // On réutilise votre fonction serveur !
 import { saveReply } from "@/app/actions/save-reply";
 
 // On définit le type localement pour éviter les soucis d'import
@@ -22,13 +21,10 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
   const [isEditing, setIsEditing] = useState(!review.isReplied);
   const [isSaved, setIsSaved] = useState(review.isReplied);
 
-  // 1. Appelle l'IA
+  // 1. Appelle l'IA (Modifié pour gérer le quota)
   const handleGenerateAI = async () => {
     setIsGenerating(true);
     try {
-        // Note: On doit créer une Server Action intermédiaire pour appeler l'IA depuis le client
-        // Pour l'instant, on suppose que vous avez créé une action wrapper ou on utilise fetch
-        // SIMPLIFICATION : On va appeler une action serveur dédiée (voir note en bas)
         const response = await fetch('/api/generate', {
             method: 'POST',
             body: JSON.stringify({ 
@@ -38,10 +34,24 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
                 starRating: review.rating
             })
         });
-        const text = await response.json();
-        setDraft(text.reply);
+
+        const data = await response.json();
+
+        // 👇 NOUVEAU : On vérifie si le quota est dépassé
+        if (response.status === 403 && data.limitReached) {
+            alert("🔒 Oups ! Limite gratuite atteinte.\n\nPassez à la version Pro pour générer des réponses illimitées.");
+            // Optionnel : Rediriger vers la page d'abonnement
+            // window.location.href = "/dashboard/subscription"; 
+            return;
+        }
+
+        // Si tout va bien, on met à jour le brouillon
+        if (data.reply) {
+            setDraft(data.reply);
+        }
+
     } catch (e) {
-        alert("Erreur IA");
+        alert("Erreur lors de la génération IA");
     } finally {
         setIsGenerating(false);
     }
