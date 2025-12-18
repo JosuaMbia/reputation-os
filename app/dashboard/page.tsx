@@ -6,7 +6,8 @@ import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 import { SyncButton } from '@/components/SyncButton';
 import { ManualRequestForm } from "@/components/manual-request-form";
-import { QRCodeCard } from "@/components/qr-code-card"; // ✅ Import ajouté
+import { QRCodeCard } from "@/components/qr-code-card";
+import { TestAiButton } from "@/components/test-ai-button"; // ✅ 1. Import ajouté
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -42,7 +43,7 @@ export default async function DashboardPage() {
           <div className="mt-8 pt-6 border-t border-gray-100 text-left">
              <h3 className="text-lg font-semibold mb-6 text-center text-gray-800 dark:text-gray-200">En attendant, vos outils sont prêts :</h3>
              
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* Outil A : SMS */}
                 <div>
                    <p className="text-sm text-indigo-600 mb-3 font-medium text-center uppercase tracking-wide">Option A : SMS (Payant)</p>
@@ -58,6 +59,12 @@ export default async function DashboardPage() {
                    />
                 </div>
              </div>
+
+             {/* ✅ 2. BOUTON TEST IA AJOUTÉ ICI (POUR TESTER IMMÉDIATEMENT) */}
+             <div className="max-w-md mx-auto">
+                <TestAiButton />
+             </div>
+
           </div>
         </div>
       </div>
@@ -144,6 +151,9 @@ export default async function DashboardPage() {
             placeId={business.googlePlaceId} 
             businessName={business.name} 
           />
+
+          {/* ✅ 3. BOUTON TEST IA AJOUTÉ ÉGALEMENT ICI */}
+          <TestAiButton />
         </div>
       </div>
     </div>
