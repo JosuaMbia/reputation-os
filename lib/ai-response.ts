@@ -1,74 +1,106 @@
 import OpenAI from 'openai';
+import { prisma } from "@/lib/prisma"; // On a besoin de Prisma pour lire les réglages
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 interface GenerateParams {
-  businessName: string;
+  businessId: string; // On passe l'ID du business pour aller chercher ses settings
   reviewText: string;
   reviewerName: string;
   starRating: number;
-  tone?: "professional" | "friendly" | "empathetic"; // On rendra ça dynamique plus tard
 }
 
 export async function generateReviewReply({
-  businessName,
+  businessId,
   reviewText,
   reviewerName,
-  starRating,
-  tone = "professional"
+  starRating
 }: GenerateParams) {
 
-  // 1. Définir la personnalité de l'IA (Le Prompt Système)
-  // C'est ici qu'on rend l'IA "Intelligente"
+  // 1. Récupérer les "Settings" du client depuis la DB
+  const business = await prisma.business.findUnique({
+    where: { id: businessId }
+  });
+
+  if (!business) throw new Error("Business introuvable");
+
+  // Valeurs par défaut si le client n'a rien configuré
+  const type = business.type || "Commerce";
+  const city = business.city || "France";
+  const keywords = business.seoKeywords || "";
+  const tone = business.tone || "professional";
+  const signature = business.signature || "";
+
+  // 2. Construire l'instruction de Ton
   let toneInstruction = "";
   switch (tone) {
     case "friendly":
-      toneInstruction = "Adopte un ton chaleureux, amical, tutoie si nécessaire et utilise un emoji si approprié.";
+      toneInstruction = "Ton : Chaleureux, amical, utilise des emojis. Tu peux tutoyer si l'avis est très sympa.";
       break;
     case "empathetic":
-      toneInstruction = "Sois très compréhensif, excuse-toi sincèrement si nécessaire, et montre que tu te soucies du client.";
+      toneInstruction = "Ton : Très compréhensif, humble, centré sur l'humain. Excuse-toi sincèrement en cas de pépin.";
       break;
     default:
-      toneInstruction = "Reste professionnel, courtois, vouvoie le client et sois concis.";
+      toneInstruction = "Ton : Professionnel, courtois, vouvoiement obligatoire, concis.";
   }
 
+  // 3. Instruction SEO (Uniquement pour les avis positifs > 3 étoiles)
+  let seoInstruction = "";
+  if (starRating >= 4 && keywords) {
+    seoInstruction = `
+      OBJECTIF SEO : Essaie d'intégrer naturellement 1 ou 2 de ces mots-clés dans la réponse (sans forcer) : "${keywords}".
+      Mentionne aussi la ville "${city}" si c'est pertinent pour le référencement local.
+    `;
+  } else if (starRating <= 3) {
+    seoInstruction = "ATTENTION : Pas de mots-clés SEO sur un avis négatif. Reste sobre et orienté solution.";
+  }
+
+  // 4. Le Prompt Final
   const systemPrompt = `
-    Tu es le propriétaire ou le manager de l'établissement nommé "${businessName}".
-    Ta mission est de répondre à un avis client Google.
+    Tu es le gérant d'un établissement de type "${type}" situé à "${city}" appelé "${business.name}".
     
-    CONSIGNES DE STYLE :
+    TA MISSION :
+    Répondre à un avis Google de manière ultra-personnalisée.
+    
+    RÈGLES :
     - ${toneInstruction}
-    - Ne signe pas la réponse (l'utilisateur le fera).
-    - Sois naturel, évite le langage "ChatGPT" trop générique.
-    - Réponds en Français.
-    - Si l'avis est positif : Remercie chaleureusement et invite à revenir.
-    - Si l'avis est négatif : Ne sois pas défensif. Remercie pour le feedback, excuse-toi pour l'expérience, et propose une solution ou invite à contacter le support.
+    - ${seoInstruction}
+    - Ne signe PAS la réponse (je l'ajouterai moi-même).
+    - Langue : Français naturel (évite le style robotique).
+    - Longueur : 3 phrases max.
   `;
 
   const userPrompt = `
-    Voici l'avis reçu :
-    Client : ${reviewerName}
-    Note : ${starRating}/5 étoiles
+    Avis de : ${reviewerName}
+    Note : ${starRating}/5
     Message : "${reviewText}"
     
-    Rédige une réponse adaptée.
+    Rédige la réponse maintenant.
   `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Le meilleur modèle actuel
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.7, // Créativité équilibrée
+      temperature: 0.7,
     });
 
-    return response.choices[0].message.content;
+    let finalReply = response.choices[0].message.content || "";
+
+    // On ajoute la signature automatiquement si elle existe
+    if (signature) {
+      finalReply += `\n\n${signature}`;
+    }
+
+    return finalReply;
+
   } catch (error) {
     console.error("Erreur OpenAI:", error);
-    return "Merci beaucoup pour votre avis ! Nous sommes ravis de vous avoir accueilli."; // Fallback en cas d'erreur
+    return "Merci pour votre avis !";
   }
 }

@@ -3,7 +3,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
 
 datasource db {
@@ -13,111 +12,80 @@ datasource db {
 
 // Modèle Utilisateur
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  name                  String?
-  plan                  String    @default("free")
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String?
+  plan               String    @default("free")
   
   // Tokens Google OAuth
-  googleAccessToken     String?   @db.Text
-  googleRefreshToken    String?   @db.Text
-  googleTokenExpiry     DateTime?
+  googleAccessToken  String?   @db.Text
+  googleRefreshToken String?   @db.Text
+  googleTokenExpiry  DateTime?
   
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   
-  businesses            Business[]
+  businesses         Business[]
 }
 
 // Modèle Business (Entreprise/Établissement)
 model Business {
-  id              String    @id @default(cuid())
-  name            String
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  name          String
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Infos Business
-  address         String?   @db.Text
-  googlePlaceId   String?   @unique
-  description     String?   @db.Text    // La description officielle sur Google
-  category        String?               // Ex: "Restaurant Italien"
-  website         String?
-  phone           String?
+  // --- 1. Identité & SEO (Nouveau) ---
+  type          String?  @default("Commerce local") // Ex: "Boulangerie"
+  city          String?  // Ex: "Lyon"
+  seoKeywords   String?  // Ex: "pain bio, sandwich pas cher"
   
-  // Configuration IA
-  tone            String?   @default("professionnel") // professionnel, amical, luxe
-  policies        Json?     // Politiques (remboursement, etc.)
-  signature       String?   @default("L'équipe")
+  // --- 2. Infos Google (Classique) ---
+  googlePlaceId String?  @unique
+  address       String?  @db.Text
+  description   String?  @db.Text
+  website       String?
+  phone         String?
   
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  // --- 3. Configuration IA (Cerveau) ---
+  tone          String   @default("professional") // "professional", "friendly", "empathetic"
+  signature     String?  // Ex: "L'équipe du Fournil"
   
-  // RELATIONS (C'est ici que j'ai ajouté les champs manquants)
-  reviews         Review[]
-  aiConfig        AIConfig?
-  customers       Customer[]       // ✅ Relation vers les clients ajoutée
-  reviewRequests  ReviewRequest[]  // ✅ Relation vers les demandes ajoutée
+  // --- 4. Relations ---
+  reviews        Review[]
+  customers      Customer[]
+  reviewRequests ReviewRequest[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // Modèle Review (Avis Google)
 model Review {
-  id              String    @id @default(cuid())
-  businessId      String
-  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   
   // Données de l'avis
-  googleReviewId  String?   @unique
-  content         String    @db.Text
-  rating          Int       // 1-5 étoiles
-  authorName      String
-  authorPhoto     String?
-  reviewDate      DateTime  @default(now())
+  googleReviewId String?   @unique
+  content        String    @db.Text
+  rating         Int       
+  authorName     String
+  authorPhoto    String?
+  reviewDate     DateTime  @default(now())
   
   // Réponse générée
-  response        String?   @db.Text
-  isReplied       Boolean   @default(false)
-  repliedAt       DateTime?
+  response       String?   @db.Text
+  isReplied      Boolean   @default(false)
+  repliedAt      DateTime?
   
   // Analyse IA
-  sentiment       String?   // positif, neutre, negatif
-  topics          Json?     // Liste des sujets identifiés
-  actionRequired  Boolean   @default(false)
+  sentiment      String?   
   
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   
   @@index([businessId])
-  @@index([sentiment])
-  @@index([isReplied])
-}
-
-// Configuration des réponses IA
-model AIConfig {
-  id                   String    @id @default(cuid())
-  businessId           String    @unique
-  business             Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  
-  // Paramètres de ton
-  tone                 String    @default("professionnel")
-  style                String    @default("standard")
-  
-  // Templates par type d'avis
-  positiveTemplate     String?   @db.Text
-  neutralTemplate      String?   @db.Text
-  negativeTemplate     String?   @db.Text
-  
-  // Paramètres OpenAI
-  temperature          Float     @default(0.7)
-  maxTokens            Int       @default(150)
-  
-  // Options
-  autoReply            Boolean   @default(false)
-  includeBusinessName  Boolean   @default(true)
-  addSignature         Boolean   @default(false)
-  signature            String?
-  
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
 }
 
 // --- GESTION DES CLIENTS & CAMPAGNES ---
@@ -128,14 +96,14 @@ model Customer {
   business    Business @relation(fields: [businessId], references: [id])
   
   name        String
-  phone       String?  // Crucial pour le SMS
-  email       String?  // Optionnel pour l'instant
-  source      String   @default("MANUAL") // "MANUAL", "CSV", "QR_SCAN"
+  phone       String?  
+  email       String?  
+  source      String   @default("MANUAL") 
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  ReviewRequests ReviewRequest[] // Lien vers les demandes envoyées
+  ReviewRequests ReviewRequest[] 
 
   @@index([businessId])
 }
@@ -148,12 +116,12 @@ model ReviewRequest {
   customerId  String
   customer    Customer @relation(fields: [customerId], references: [id])
 
-  channel     RequestChannel // SMS, EMAIL, QR
+  channel     RequestChannel 
   status      RequestStatus  @default(SENT)
-  cost        Float          @default(0.0) // On stocke le coût réel pour ta compta (ex: 0.07€)
+  cost        Float          @default(0.0) 
 
   sentAt      DateTime @default(now())
-  clickedAt   DateTime? // Pour savoir si le lien magique a fonctionné
+  clickedAt   DateTime? 
 }
 
 enum RequestChannel {
