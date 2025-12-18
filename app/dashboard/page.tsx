@@ -5,7 +5,8 @@ import Link from "next/link";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import { BusinessInfoCard } from '@/components/BusinessInfoCard';
 import { SyncButton } from '@/components/SyncButton';
-import { ManualRequestForm } from "@/components/manual-request-form"; // ✅ Le nouvel import
+import { ManualRequestForm } from "@/components/manual-request-form";
+import { QRCodeCard } from "@/components/qr-code-card"; // ✅ Import ajouté
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -26,19 +27,37 @@ export default async function DashboardPage() {
              <UserButton />
         </nav>
 
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl text-center max-w-md w-full border border-gray-100 dark:border-gray-700 mt-10">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl text-center max-w-4xl w-full border border-gray-100 dark:border-gray-700 mt-10">
           <div className="text-5xl mb-6">🚀</div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Bienvenue sur Reputation OS</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">
             En attente de validation Google...
           </p>
           
-          <SyncButton />
+          <div className="max-w-md mx-auto mb-8">
+             <SyncButton />
+          </div>
           
-          {/* 👇 FORMULAIRE MANUEL INTÉGRÉ ICI 👇 */}
-          <div className="mt-8 pt-6 border-t border-gray-100">
-             <p className="text-sm text-gray-500 mb-4">En attendant, envoyez votre première invitation :</p>
-             <ManualRequestForm />
+          {/* 👇 Zone Outils (SMS + QR) 👇 */}
+          <div className="mt-8 pt-6 border-t border-gray-100 text-left">
+             <h3 className="text-lg font-semibold mb-6 text-center text-gray-800 dark:text-gray-200">En attendant, vos outils sont prêts :</h3>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Outil A : SMS */}
+                <div>
+                   <p className="text-sm text-indigo-600 mb-3 font-medium text-center uppercase tracking-wide">Option A : SMS (Payant)</p>
+                   <ManualRequestForm />
+                </div>
+                
+                {/* Outil B : QR Code */}
+                <div>
+                   <p className="text-sm text-green-600 mb-3 font-medium text-center uppercase tracking-wide">Option B : QR Code (Gratuit)</p>
+                   <QRCodeCard 
+                      placeId={business?.googlePlaceId} 
+                      businessName={business?.name || "Votre Entreprise"} 
+                   />
+                </div>
+             </div>
           </div>
         </div>
       </div>
@@ -118,8 +137,13 @@ export default async function DashboardPage() {
         <div className="lg:col-span-1 space-y-6">
           <BusinessInfoCard />
           
-          {/* 👇 FORMULAIRE PLACÉ ICI DANS LE DASHBOARD 👇 */}
+          {/* 👇 LES OUTILS SONT ICI 👇 */}
           <ManualRequestForm />
+          
+          <QRCodeCard 
+            placeId={business.googlePlaceId} 
+            businessName={business.name} 
+          />
         </div>
       </div>
     </div>
