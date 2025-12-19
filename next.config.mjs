@@ -1,4 +1,4 @@
-/** @type {import('next').NextConfig} */
+//** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -6,16 +6,13 @@ const nextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
-  // Injection de clé bidon pour que le build ne plante pas si une lib OpenAI traîne
   env: {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || "sk-placeholder-for-build",
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Note : J'ai supprimé la section "eslint" car elle n'est plus supportée ici
 };
 
 export default nextConfig;
