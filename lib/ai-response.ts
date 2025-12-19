@@ -1,14 +1,8 @@
 import OpenAI from 'openai';
 import { prisma } from "@/lib/prisma";
 
-// 🚨 C'EST ICI QUE LA MAGIE OPÈRE 🚨
-// On dit : "Prends la vraie clé OU une fausse chaîne de caractères si la vraie est vide"
-// Cela permet au new OpenAI() de réussir son initialisation pendant le build Vercel.
-const apiKey = process.env.OPENAI_API_KEY || "sk-placeholder-for-build-process";
-
-const openai = new OpenAI({
-  apiKey: apiKey,
-});
+// 🗑️ ON SUPPRIME L'INITIALISATION GLOBALE ICI
+// const openai = new OpenAI(...) <--- C'est ça qui fait planter le build !
 
 interface GenerateParams {
   businessId: string;
@@ -24,16 +18,21 @@ export async function generateReviewReply({
   starRating
 }: GenerateParams) {
 
-  // 🛡️ SÉCURITÉ RUNTIME
-  // Par contre, quand on voudra VRAIMENT générer une réponse (quand le site tourne),
-  // là on vérifie qu'on a la vraie clé. Sinon on renvoie un texte par défaut.
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("⚠️ Clé OpenAI manquante sur le serveur (Runtime).");
+  // 1. On initialise OpenAI UNIQUEMENT quand la fonction est appelée (Runtime)
+  // Le build Vercel n'appellera jamais cette fonction, donc ça ne plantera plus jamais.
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    console.error("⚠️ Clé OpenAI manquante (Runtime).");
     return "Merci beaucoup pour votre avis !";
   }
 
+  const openai = new OpenAI({
+    apiKey: apiKey, 
+  });
+
   try {
-    // 1. Récupérer les "Settings" du client depuis la DB
+    // 2. Récupérer les "Settings" du client depuis la DB
     const business = await prisma.business.findUnique({
       where: { id: businessId }
     });
@@ -47,7 +46,7 @@ export async function generateReviewReply({
     const tone = business.tone || "professional";
     const signature = business.signature || "";
 
-    // 2. Construire l'instruction de Ton
+    // 3. Construire l'instruction de Ton
     let toneInstruction = "";
     switch (tone) {
       case "friendly":
@@ -60,7 +59,7 @@ export async function generateReviewReply({
         toneInstruction = "Ton : Professionnel, courtois, vouvoiement obligatoire, concis.";
     }
 
-    // 3. Instruction SEO (Uniquement pour les avis positifs > 3 étoiles)
+    // 4. Instruction SEO
     let seoInstruction = "";
     if (starRating >= 4 && keywords) {
       seoInstruction = `
@@ -71,7 +70,7 @@ export async function generateReviewReply({
       seoInstruction = "ATTENTION : Pas de mots-clés SEO sur un avis négatif. Reste sobre et orienté solution.";
     }
 
-    // 4. Le Prompt Final
+    // 5. Le Prompt Final
     const systemPrompt = `
       Tu es le gérant d'un établissement de type "${type}" situé à "${city}" appelé "${business.name}".
       
@@ -95,7 +94,7 @@ export async function generateReviewReply({
     `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Ou "gpt-3.5-turbo"
+      model: "gpt-4o", 
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -105,7 +104,6 @@ export async function generateReviewReply({
 
     let finalReply = response.choices[0].message.content || "";
 
-    // On ajoute la signature automatiquement si elle existe
     if (signature) {
       finalReply += `\n\n${signature}`;
     }
@@ -114,7 +112,6 @@ export async function generateReviewReply({
 
   } catch (error) {
     console.error("Erreur OpenAI:", error);
-    // Fallback propre pour ne jamais faire planter l'interface utilisateur
     return "Merci pour votre avis !";
   }
 }
