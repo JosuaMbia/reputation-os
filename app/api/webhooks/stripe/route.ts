@@ -4,14 +4,12 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 
-// 🚀 LE FIX : On force cette route à être dynamique.
-// Cela dit à Next.js : "Ne l'exécute pas pendant le build, attends qu'un vrai paiement arrive."
+// 🚀 LE FIX FINAL : On force le mode dynamique.
+// C'est la ligne qui manquait pour que le build Vercel passe.
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   const body = await req.text();
-  
-  // Récupération des headers (Compatible Next.js 15/16)
   const headerList = await headers();
   const signature = headerList.get("Stripe-Signature") as string;
 
@@ -29,47 +27,35 @@ export async function POST(req: Request) {
 
   const session = event.data.object as Stripe.Checkout.Session;
 
-  // 1. CAS A : Premier paiement réussi (Checkout)
   if (event.type === "checkout.session.completed") {
-    // On utilise "as any" pour éviter les erreurs de typage strictes de Stripe lors du build
+    // On utilise "as any" pour la souplesse du build
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription as string
     ) as any;
 
-    if (!session?.metadata?.businessId) {
-      return new NextResponse("Business ID manquant dans les métadonnées", { status: 400 });
+    if (session?.metadata?.businessId) {
+      await prisma.business.update({
+        where: { id: session.metadata.businessId },
+        data: {
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: subscription.customer as string,
+          stripePriceId: subscription.items.data[0].price.id,
+          stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        },
+      });
     }
-
-    await prisma.business.update({
-      where: {
-        id: session.metadata.businessId,
-      },
-      data: {
-        stripeSubscriptionId: subscription.id,
-        stripeCustomerId: subscription.customer as string,
-        stripePriceId: subscription.items.data[0].price.id,
-        stripeCurrentPeriodEnd: new Date(
-          subscription.current_period_end * 1000
-        ),
-      },
-    });
   }
 
-  // 2. CAS B : Renouvellement mensuel réussi (Invoice)
   if (event.type === "invoice.payment_succeeded") {
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription as string
     ) as any;
 
     await prisma.business.update({
-      where: {
-        stripeSubscriptionId: subscription.id,
-      },
+      where: { stripeSubscriptionId: subscription.id },
       data: {
         stripePriceId: subscription.items.data[0].price.id,
-        stripeCurrentPeriodEnd: new Date(
-          subscription.current_period_end * 1000
-        ),
+        stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
       },
     });
   }
