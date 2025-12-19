@@ -1,12 +1,17 @@
 import OpenAI from 'openai';
-import { prisma } from "@/lib/prisma"; // On a besoin de Prisma pour lire les réglages
+import { prisma } from "@/lib/prisma";
+
+// 🛡️ CORRECTION CRITIQUE POUR LE BUILD VERCEL
+// Si la variable d'env n'est pas dispo au moment du build, on met une clé bidon
+// pour éviter que "new OpenAI()" ne fasse crasher l'installation.
+const apiKey = process.env.OPENAI_API_KEY || "sk-placeholder-for-build";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: apiKey,
 });
 
 interface GenerateParams {
-  businessId: string; // On passe l'ID du business pour aller chercher ses settings
+  businessId: string;
   reviewText: string;
   reviewerName: string;
   starRating: number;
@@ -19,70 +24,77 @@ export async function generateReviewReply({
   starRating
 }: GenerateParams) {
 
-  // 1. Récupérer les "Settings" du client depuis la DB
-  const business = await prisma.business.findUnique({
-    where: { id: businessId }
-  });
-
-  if (!business) throw new Error("Business introuvable");
-
-  // Valeurs par défaut si le client n'a rien configuré
-  const type = business.type || "Commerce";
-  const city = business.city || "France";
-  const keywords = business.seoKeywords || "";
-  const tone = business.tone || "professional";
-  const signature = business.signature || "";
-
-  // 2. Construire l'instruction de Ton
-  let toneInstruction = "";
-  switch (tone) {
-    case "friendly":
-      toneInstruction = "Ton : Chaleureux, amical, utilise des emojis. Tu peux tutoyer si l'avis est très sympa.";
-      break;
-    case "empathetic":
-      toneInstruction = "Ton : Très compréhensif, humble, centré sur l'humain. Excuse-toi sincèrement en cas de pépin.";
-      break;
-    default:
-      toneInstruction = "Ton : Professionnel, courtois, vouvoiement obligatoire, concis.";
+  // 🛡️ SÉCURITÉ RUNTIME : On vérifie qu'on a la VRAIE clé avant de commencer
+  // Sinon on renvoie une phrase standard sans planter
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("⚠️ Clé OpenAI manquante sur le serveur.");
+    return "Merci beaucoup pour votre avis !";
   }
-
-  // 3. Instruction SEO (Uniquement pour les avis positifs > 3 étoiles)
-  let seoInstruction = "";
-  if (starRating >= 4 && keywords) {
-    seoInstruction = `
-      OBJECTIF SEO : Essaie d'intégrer naturellement 1 ou 2 de ces mots-clés dans la réponse (sans forcer) : "${keywords}".
-      Mentionne aussi la ville "${city}" si c'est pertinent pour le référencement local.
-    `;
-  } else if (starRating <= 3) {
-    seoInstruction = "ATTENTION : Pas de mots-clés SEO sur un avis négatif. Reste sobre et orienté solution.";
-  }
-
-  // 4. Le Prompt Final
-  const systemPrompt = `
-    Tu es le gérant d'un établissement de type "${type}" situé à "${city}" appelé "${business.name}".
-    
-    TA MISSION :
-    Répondre à un avis Google de manière ultra-personnalisée.
-    
-    RÈGLES :
-    - ${toneInstruction}
-    - ${seoInstruction}
-    - Ne signe PAS la réponse (je l'ajouterai moi-même).
-    - Langue : Français naturel (évite le style robotique).
-    - Longueur : 3 phrases max.
-  `;
-
-  const userPrompt = `
-    Avis de : ${reviewerName}
-    Note : ${starRating}/5
-    Message : "${reviewText}"
-    
-    Rédige la réponse maintenant.
-  `;
 
   try {
+    // 1. Récupérer les "Settings" du client depuis la DB
+    const business = await prisma.business.findUnique({
+      where: { id: businessId }
+    });
+
+    if (!business) throw new Error("Business introuvable");
+
+    // Valeurs par défaut si le client n'a rien configuré
+    const type = business.type || "Commerce";
+    const city = business.city || "France";
+    const keywords = business.seoKeywords || "";
+    const tone = business.tone || "professional";
+    const signature = business.signature || "";
+
+    // 2. Construire l'instruction de Ton
+    let toneInstruction = "";
+    switch (tone) {
+      case "friendly":
+        toneInstruction = "Ton : Chaleureux, amical, utilise des emojis. Tu peux tutoyer si l'avis est très sympa.";
+        break;
+      case "empathetic":
+        toneInstruction = "Ton : Très compréhensif, humble, centré sur l'humain. Excuse-toi sincèrement en cas de pépin.";
+        break;
+      default:
+        toneInstruction = "Ton : Professionnel, courtois, vouvoiement obligatoire, concis.";
+    }
+
+    // 3. Instruction SEO (Uniquement pour les avis positifs > 3 étoiles)
+    let seoInstruction = "";
+    if (starRating >= 4 && keywords) {
+      seoInstruction = `
+        OBJECTIF SEO : Essaie d'intégrer naturellement 1 ou 2 de ces mots-clés dans la réponse (sans forcer) : "${keywords}".
+        Mentionne aussi la ville "${city}" si c'est pertinent pour le référencement local.
+      `;
+    } else if (starRating <= 3) {
+      seoInstruction = "ATTENTION : Pas de mots-clés SEO sur un avis négatif. Reste sobre et orienté solution.";
+    }
+
+    // 4. Le Prompt Final
+    const systemPrompt = `
+      Tu es le gérant d'un établissement de type "${type}" situé à "${city}" appelé "${business.name}".
+      
+      TA MISSION :
+      Répondre à un avis Google de manière ultra-personnalisée.
+      
+      RÈGLES :
+      - ${toneInstruction}
+      - ${seoInstruction}
+      - Ne signe PAS la réponse (je l'ajouterai moi-même).
+      - Langue : Français naturel (évite le style robotique).
+      - Longueur : 3 phrases max.
+    `;
+
+    const userPrompt = `
+      Avis de : ${reviewerName}
+      Note : ${starRating}/5
+      Message : "${reviewText}"
+      
+      Rédige la réponse maintenant.
+    `;
+
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o", // Ou "gpt-3.5-turbo" si vous voulez économiser
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -101,6 +113,7 @@ export async function generateReviewReply({
 
   } catch (error) {
     console.error("Erreur OpenAI:", error);
+    // Fallback en cas d'erreur API
     return "Merci pour votre avis !";
   }
 }
