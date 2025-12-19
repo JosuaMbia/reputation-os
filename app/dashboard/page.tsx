@@ -1,166 +1,122 @@
 import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
-import { BusinessInfoCard } from '@/components/BusinessInfoCard';
-import { SyncButton } from '@/components/SyncButton';
-import { ManualRequestForm } from "@/components/manual-request-form";
-import { QRCodeCard } from "@/components/qr-code-card";
-import { TestAiButton } from "@/components/test-ai-button";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
-  if (!userId) {
-    redirect("/");
-  }
+  if (!userId) redirect("/");
 
-  const data = await getCurrentUserWithBusiness(userId);
-  const user = data?.user;
-  const business = user?.businesses?.[0];
+  // 1. Récupérer les infos du business et les stats des avis
+  const business = await prisma.business.findFirst({
+    where: { userId },
+    include: {
+      reviews: true, // On récupère les avis pour calculer les stats
+    },
+  });
 
-  // 🚨 1. REDIRECTION ONBOARDING (Si aucun business n'est créé)
-  // C'est ici qu'on force les nouveaux utilisateurs à passer par le wizard
+  // Si pas de business, on redirige vers l'onboarding (si vous en avez un) ou on affiche un message
   if (!business) {
-    redirect("/onboarding");
+    return <div>Chargement du profil...</div>;
   }
 
-  // --- CAS 2 : BUSINESS EXISTE MAIS PAS ENCORE VALIDÉ GOOGLE (Écran d'attente) ---
-  if (!business.googlePlaceId) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-        <nav className="absolute top-0 w-full bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
-             <div className="font-bold text-xl text-gray-900 dark:text-white">Reputation OS</div>
-             <UserButton />
-        </nav>
-
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl text-center max-w-4xl w-full border border-gray-100 dark:border-gray-700 mt-10">
-          <div className="text-5xl mb-6">🚀</div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Bienvenue sur Reputation OS</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            En attente de validation Google pour <strong>{business.name}</strong>...
-          </p>
-          
-          <div className="max-w-md mx-auto mb-8">
-             <SyncButton />
-          </div>
-          
-          {/* 👇 Zone Outils (SMS + QR) 👇 */}
-          <div className="mt-8 pt-6 border-t border-gray-100 text-left">
-             <h3 className="text-lg font-semibold mb-6 text-center text-gray-800 dark:text-gray-200">En attendant, vos outils sont prêts :</h3>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                {/* Outil A : SMS */}
-                <div>
-                   <p className="text-sm text-indigo-600 mb-3 font-medium text-center uppercase tracking-wide">Option A : SMS (Payant)</p>
-                   <ManualRequestForm />
-                </div>
-                
-                {/* Outil B : QR Code */}
-                <div>
-                   <p className="text-sm text-green-600 mb-3 font-medium text-center uppercase tracking-wide">Option B : QR Code (Gratuit)</p>
-                   <QRCodeCard 
-                      placeId={business?.googlePlaceId} 
-                      businessName={business?.name || "Votre Entreprise"} 
-                   />
-                </div>
-             </div>
-
-             {/* BOUTON TEST IA */}
-             <div className="max-w-md mx-auto">
-                <TestAiButton />
-             </div>
-
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- CAS 3 : DASHBOARD COMPLET ---
-  const reviews = business.reviews || [];
-  const totalReviews = reviews.length;
+  // 2. Calculs des Statistiques
+  const totalReviews = business.reviews.length;
   
-  const avgRating = totalReviews > 0
-    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1)
+  // Calcul de la note moyenne
+  const averageRating = totalReviews > 0
+    ? (business.reviews.reduce((acc, review) => acc + review.rating, 0) / totalReviews).toFixed(1)
     : "0.0";
 
-  const repliedCount = reviews.filter(r => r.isReplied).length;
-  const responseRate = totalReviews > 0
-    ? Math.round((repliedCount / totalReviews) * 100)
-    : 0;
-
-  const currentMonth = new Date().getMonth();
-  const newReviews = reviews.filter(r => new Date(r.reviewDate).getMonth() === currentMonth).length;
+  // Calcul du nombre d'avis sans réponse (si vous gérez ce champ, sinon optionnel)
+  const pendingReviews = business.reviews.filter(r => !r.response).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-xl font-bold text-blue-600">Reputation OS</Link>
-          <span className="text-sm text-gray-500 hidden md:block">{business.name}</span>
-        </div>
-        <UserButton />
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+      <div className="max-w-5xl mx-auto space-y-8">
         
-        {/* COLONNE GAUCHE (Stats + Actions) */}
-        <div className="lg:col-span-2 space-y-6">
-           {/* Stats Grid */}
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Avis Total</div>
-                <div className="text-2xl font-bold dark:text-white">{totalReviews}</div>
-                <div className="text-xs text-green-600">+{newReviews} ce mois</div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-yellow-500">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Note Moyenne</div>
-                <div className="text-2xl font-bold dark:text-white">{avgRating} ⭐</div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-purple-500">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Taux Réponse</div>
-                <div className="text-2xl font-bold dark:text-white">{responseRate}%</div>
-              </div>
-           </div>
-           
-           {/* Actions Rapides */}
-           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="font-bold mb-4 dark:text-white">Actions Rapides</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link href="/dashboard/reviews" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
-                   <span className="text-2xl">💬</span>
-                   <div>
-                     <div className="font-semibold dark:text-white">Gérer les avis</div>
-                     <div className="text-xs text-gray-500 dark:text-gray-400">Répondre aux clients</div>
-                   </div>
-                </Link>
-                <Link href="/dashboard/analytics" className="p-4 border rounded hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 flex gap-3 items-center">
-                   <span className="text-2xl">📊</span>
-                   <div>
-                     <div className="font-semibold dark:text-white">Analytics</div>
-                     <div className="text-xs text-gray-500 dark:text-gray-400">Voir les stats</div>
-                   </div>
-                </Link>
-              </div>
-           </div>
+        {/* En-tête de bienvenue */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Bonjour, {business.name || "Entrepreneur"} 👋
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Voici ce qui se passe sur votre e-réputation aujourd'hui.
+            </p>
+          </div>
+          <Link 
+            href="/dashboard/settings" 
+            className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm"
+          >
+            ⚙️ Réglages
+          </Link>
         </div>
 
-        {/* COLONNE DROITE (Infos + Outils) */}
-        <div className="lg:col-span-1 space-y-6">
-          <BusinessInfoCard />
-          
-          {/* 👇 LES OUTILS SONT ICI 👇 */}
-          <ManualRequestForm />
-          
-          <QRCodeCard 
-            placeId={business.googlePlaceId} 
-            businessName={business.name} 
-          />
+        {/* CAS 1 : Aucun avis importé -> On guide l'utilisateur */}
+        {totalReviews === 0 ? (
+          <div className="bg-indigo-600 rounded-2xl p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold">🚀 Lancez la machine !</h2>
+              <p className="text-indigo-100 max-w-lg">
+                Vous n'avez pas encore d'avis synchronisés. Importez vos avis Google ou Trustpilot pour commencer à générer des réponses avec l'IA.
+              </p>
+              <Link 
+                href="/dashboard/reviews" 
+                className="inline-block px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition"
+              >
+                📥 Importer mes avis maintenant
+              </Link>
+            </div>
+            <div className="text-6xl">📊</div>
+          </div>
+        ) : (
+          /* CAS 2 : Des avis existent -> On affiche les KPIs */
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* KPI 1 : Note Moyenne */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">Note Moyenne</h3>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">{averageRating}</span>
+                <span className="text-yellow-500 text-2xl">★</span>
+              </div>
+            </div>
 
-          {/* BOUTON TEST IA */}
-          <TestAiButton />
+            {/* KPI 2 : Total Avis */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">Total Avis</h3>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">{totalReviews}</span>
+                <span className="text-sm text-gray-500">avis analysés</span>
+              </div>
+            </div>
+
+            {/* KPI 3 : Action Rapide */}
+            <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-xl shadow-sm text-white flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-purple-100 uppercase">À traiter</h3>
+                <div className="mt-2 text-3xl font-bold">{pendingReviews} avis</div>
+              </div>
+              <Link href="/dashboard/reviews" className="mt-4 text-sm font-bold hover:underline flex items-center gap-1">
+                Gérer mes avis →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Liens Rapides */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Link href="/dashboard/reviews" className="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 hover:border-indigo-500 transition cursor-pointer">
+                <h3 className="text-lg font-bold mb-2 group-hover:text-indigo-600 transition">⭐ Gestion des Avis</h3>
+                <p className="text-gray-500 text-sm">Voir, importer et répondre à vos avis Google & Trustpilot.</p>
+            </Link>
+            
+            <Link href="/dashboard/settings" className="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 hover:border-purple-500 transition cursor-pointer">
+                <h3 className="text-lg font-bold mb-2 group-hover:text-purple-600 transition">🧠 Configuration IA</h3>
+                <p className="text-gray-500 text-sm">Ajuster le ton, la signature et les mots-clés de l'assistant.</p>
+            </Link>
         </div>
+
       </div>
     </div>
   );
