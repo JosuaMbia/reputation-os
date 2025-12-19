@@ -1,30 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // On garde la configuration des images
+  // 1. Configuration des images
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'img.clerk.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-      },
+      { protocol: 'https', hostname: 'img.clerk.com' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
 
-  // ✅ CORRECTION : On utilise uniquement 'env' pour injecter la fausse clé.
-  // C'est compatible avec Turbopack (le nouveau moteur) ET Webpack.
+  // 2. Injection de la fausse clé pour le build (Compatible Turbopack)
   env: {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || "sk-placeholder-for-build-process-only",
   },
   
-  // On désactive la vérification stricte d'ESLint/TypeScript pendant le build
-  // pour éviter qu'une petite erreur de type ne bloque tout à la dernière seconde.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // 3. On ignore les erreurs TypeScript pendant le build pour forcer le passage
   typescript: {
     ignoreBuildErrors: true,
   },

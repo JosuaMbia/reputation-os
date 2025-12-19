@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 
+export const dynamic = 'force-dynamic';
 // URL de base de l'application (en local ou en prod)
 // Assurez-vous d'avoir défini NEXT_PUBLIC_APP_URL dans votre .env
 const settingsUrl = process.env.NEXT_PUBLIC_APP_URL 
