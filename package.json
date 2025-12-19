@@ -12,6 +12,7 @@
     "@clerk/nextjs": "^6.7.3",
     "@prisma/client": "^6.1.0",
     "@types/papaparse": "^5.5.2",
+    "apify-client": "^2.21.0",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "google-auth-library": "^10.5.0",

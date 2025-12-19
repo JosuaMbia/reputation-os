@@ -8,6 +8,10 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Reputation OS - Gestion intelligente des avis Google",
   description: "SaaS intelligent pour gérer les avis Google avec IA",
+  // ✅ AJOUT DU LOGO ICI
+  icons: {
+    icon: '/logo.png', // Next.js ira chercher ce fichier dans le dossier public/
+  },
 };
 
 export default function RootLayout({
