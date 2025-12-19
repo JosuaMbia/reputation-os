@@ -1,8 +1,7 @@
 import OpenAI from 'openai';
 import { prisma } from "@/lib/prisma";
 
-// ⚠️ IMPORTANT : Pas de "const openai = new OpenAI(...)" ici !
-// On laisse cet espace vide pour ne pas casser le build.
+// ⚠️ AUCUNE initialisation globale ici !
 
 interface GenerateParams {
   businessId: string;
@@ -17,79 +16,27 @@ export async function generateReviewReply({
   reviewerName,
   starRating
 }: GenerateParams) {
-
-  // 1. Initialisation "Lazy" (Paresseuse) : On ne charge OpenAI que maintenant.
+  // 🛡️ Initialisation UNIQUEMENT lors de l'appel (Runtime)
   const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return "Clé IA manquante.";
 
-  if (!apiKey) {
-    console.error("❌ Erreur : Clé OpenAI manquante");
-    return "Merci pour votre avis ! (Erreur configuration IA)";
-  }
-
-  const openai = new OpenAI({
-    apiKey: apiKey, 
-  });
+  const openai = new OpenAI({ apiKey });
 
   try {
-    const business = await prisma.business.findUnique({
-      where: { id: businessId }
-    });
-
+    const business = await prisma.business.findUnique({ where: { id: businessId } });
     if (!business) throw new Error("Business introuvable");
 
-    const type = business.type || "Commerce";
-    const city = business.city || "France";
-    const keywords = business.seoKeywords || "";
-    const tone = business.tone || "professional";
-    const signature = business.signature || "";
-
-    let toneInstruction = "";
-    switch (tone) {
-      case "friendly":
-        toneInstruction = "Ton : Chaleureux, amical, utilise des emojis.";
-        break;
-      case "empathetic":
-        toneInstruction = "Ton : Empathique, excusé, centré humain.";
-        break;
-      default:
-        toneInstruction = "Ton : Professionnel, courtois, vouvoiement.";
-    }
-
-    let seoInstruction = "";
-    if (starRating >= 4 && keywords) {
-      seoInstruction = `SEO : Intègre naturellement "${keywords}" et la ville "${city}".`;
-    }
-
-    const systemPrompt = `
-      Tu es le gérant de "${business.name}" (${type}) à ${city}.
-      RÈGLES :
-      - ${toneInstruction}
-      - ${seoInstruction}
-      - Pas de signature (ajoutée auto).
-      - Français naturel. Max 3 phrases.
-    `;
-
-    const userPrompt = `Avis de ${reviewerName} (${starRating}/5) : "${reviewText}"`;
-
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", 
+      model: "gpt-4o",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.7,
+        { role: "system", content: "Réponds à cet avis client poliment." },
+        { role: "user", content: `Avis de ${reviewerName}: ${reviewText}` }
+      ]
     });
 
-    let finalReply = response.choices[0].message.content || "";
-
-    if (signature) {
-      finalReply += `\n\n${signature}`;
-    }
-
-    return finalReply;
-
+    return response.choices[0].message.content || "";
   } catch (error) {
-    console.error("Erreur OpenAI:", error);
+    console.error("Erreur IA:", error);
     return "Merci pour votre avis !";
   }
 }
