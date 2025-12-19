@@ -13,7 +13,7 @@ interface ReviewProps {
   authorName: string;
   rating: number;
   content: string;
-  date: Date;     // ✅ RENOMMÉ (était reviewDate)
+  reviewDate: Date;     // ✅ RENOMMÉ (était reviewDate)
   response?: string | null;
   businessId: string;
 }
@@ -79,7 +79,7 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
           </div>
         </div>
         <span className="text-xs text-gray-400">
-          {new Date(review.date).toLocaleDateString()}
+          {new Date(review.reviewDate).toLocaleDateString()}
         </span>
       </div>
 

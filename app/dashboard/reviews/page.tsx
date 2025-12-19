@@ -14,7 +14,7 @@ export default async function ReviewsPage() {
         where: { userId },
         include: { 
             reviews: { 
-                orderBy: { date: 'desc' } 
+                orderBy: { reviewDate: 'desc' } 
             } 
         }
     });

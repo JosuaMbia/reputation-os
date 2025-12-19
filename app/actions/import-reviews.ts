@@ -85,7 +85,7 @@ export async function scrapeAndSaveReviews(url: string) {
                     authorName: authorName,
                     rating: Number(rating),
                     content: content,
-                    date: new Date(dateStr),
+                    reviewDate: new Date(dateStr),
                     businessId: business.id,
                 }
             });
