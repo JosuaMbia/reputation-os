@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
 import { prisma } from "@/lib/prisma";
 
-// 🛡️ CORRECTION CRITIQUE POUR LE BUILD VERCEL
-// Si la variable d'env n'est pas dispo au moment du build, on met une clé bidon
-// pour éviter que "new OpenAI()" ne fasse crasher l'installation.
-const apiKey = process.env.OPENAI_API_KEY || "sk-placeholder-for-build";
+// 🚨 C'EST ICI QUE LA MAGIE OPÈRE 🚨
+// On dit : "Prends la vraie clé OU une fausse chaîne de caractères si la vraie est vide"
+// Cela permet au new OpenAI() de réussir son initialisation pendant le build Vercel.
+const apiKey = process.env.OPENAI_API_KEY || "sk-placeholder-for-build-process";
 
 const openai = new OpenAI({
   apiKey: apiKey,
@@ -24,10 +24,11 @@ export async function generateReviewReply({
   starRating
 }: GenerateParams) {
 
-  // 🛡️ SÉCURITÉ RUNTIME : On vérifie qu'on a la VRAIE clé avant de commencer
-  // Sinon on renvoie une phrase standard sans planter
+  // 🛡️ SÉCURITÉ RUNTIME
+  // Par contre, quand on voudra VRAIMENT générer une réponse (quand le site tourne),
+  // là on vérifie qu'on a la vraie clé. Sinon on renvoie un texte par défaut.
   if (!process.env.OPENAI_API_KEY) {
-    console.error("⚠️ Clé OpenAI manquante sur le serveur.");
+    console.error("⚠️ Clé OpenAI manquante sur le serveur (Runtime).");
     return "Merci beaucoup pour votre avis !";
   }
 
@@ -94,7 +95,7 @@ export async function generateReviewReply({
     `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Ou "gpt-3.5-turbo" si vous voulez économiser
+      model: "gpt-4o", // Ou "gpt-3.5-turbo"
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -113,7 +114,7 @@ export async function generateReviewReply({
 
   } catch (error) {
     console.error("Erreur OpenAI:", error);
-    // Fallback en cas d'erreur API
+    // Fallback propre pour ne jamais faire planter l'interface utilisateur
     return "Merci pour votre avis !";
   }
 }
