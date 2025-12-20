@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { AICopilot } from "@/components/ai-copilot"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,5 +26,24 @@ export default function RootLayout({
         <body className={inter.className}>{children}</body>
       </html>
     </ClerkProvider>
+  );
+}
+// app/dashboard/layout.tsx (exemple)
+
+
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative min-h-screen">
+      {/* Le contenu normal de vos pages dashboard */}
+      {children}
+
+      {/* ✅ LE COPILOT EST ICI (Il flottera par-dessus tout) */}
+      <AICopilot />
+    </div>
   );
 }
