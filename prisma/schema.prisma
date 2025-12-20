@@ -47,6 +47,9 @@ model Business {
   website        String?
   phone          String?
 
+  googleUrl     String?   // Le ? signifie que c'est optionnel
+  trustpilotUrl String?
+
   // --- 3. Configuration Stripe (Abonnement) ---
   stripeCustomerId       String?   @unique 
   stripeSubscriptionId   String?   @unique 
