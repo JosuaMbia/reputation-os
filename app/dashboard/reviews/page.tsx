@@ -6,12 +6,17 @@ import { ReviewCard } from "@/components/review-card";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs"; 
 
-// ✅ Modification de la signature pour accepter les paramètres d'URL
-export default async function ReviewsPage({ searchParams }: { searchParams: { rating?: string } }) {
+// ✅ CHANGEMENT : On définit le type comme une Promise (Spécifique Next.js 15/16)
+interface ReviewsPageProps {
+    searchParams: Promise<{ rating?: string }>;
+}
+
+export default async function ReviewsPage(props: ReviewsPageProps) {
     const { userId } = await auth();
     if (!userId) redirect("/");
 
-    // 1. On récupère le filtre (ex: ?rating=5)
+    // ✅ CORRECTION CRITIQUE : On attend (await) que les paramètres soient disponibles
+    const searchParams = await props.searchParams;
     const ratingFilter = searchParams.rating ? parseInt(searchParams.rating) : undefined;
 
     // 2. On récupère le business avec les avis FILTRÉS
@@ -19,7 +24,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: { ra
         where: { userId },
         include: { 
             reviews: { 
-                // Si un filtre existe, on l'applique, sinon on prend tout
+                // Si un filtre existe, on l'applique strictement
                 where: ratingFilter ? { rating: ratingFilter } : undefined,
                 orderBy: { reviewDate: 'desc' } 
             } 
@@ -68,19 +73,21 @@ export default async function ReviewsPage({ searchParams }: { searchParams: { ra
                     <ReviewsImporter />
                 </div>
 
-                {/* ✅ 3. INDICATEUR DE FILTRE ACTIF */}
+                {/* ✅ INDICATEUR DE FILTRE ACTIF */}
                 {ratingFilter && (
                     <div className="mb-6 animate-in slide-in-from-top-2">
-                        <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200 px-4 py-3 rounded-lg flex items-center justify-between">
+                        <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200 px-4 py-3 rounded-lg flex items-center justify-between shadow-sm">
                             <span className="flex items-center gap-2">
-                                <span className="text-lg">🔍</span>
-                                <span>Affichage des avis <b>{ratingFilter} étoiles</b> uniquement.</span>
+                                <span className="text-xl">🔍</span>
+                                <span>
+                                    Filtre activé : Vous ne voyez que les avis <b>{ratingFilter} étoiles</b>.
+                                </span>
                             </span>
                             <Link 
                                 href="/dashboard/reviews" 
-                                className="text-sm font-bold underline hover:text-indigo-600 dark:hover:text-white"
+                                className="px-3 py-1 bg-white dark:bg-indigo-800 rounded-md text-sm font-bold shadow-sm hover:shadow transition"
                             >
-                                Effacer le filtre
+                                ✕ Effacer le filtre
                             </Link>
                         </div>
                     </div>
@@ -91,14 +98,14 @@ export default async function ReviewsPage({ searchParams }: { searchParams: { ra
                     {reviews.length === 0 ? (
                         <div className="bg-white dark:bg-gray-800 p-12 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-center">
                             <div className="text-4xl mb-4">
-                                {ratingFilter ? "🔍" : "👇"}
+                                {ratingFilter ? "∅" : "👇"}
                             </div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                                 {ratingFilter ? "Aucun avis trouvé" : "C'est un peu vide ici..."}
                             </h3>
                             <p className="text-gray-500 max-w-md mx-auto">
                                 {ratingFilter 
-                                    ? `Vous n'avez aucun avis avec la note de ${ratingFilter}/5.` 
+                                    ? `Aucun avis ne correspond à la note de ${ratingFilter}/5.` 
                                     : "Commencez par importer vos avis en collant l'URL de votre fiche Google ou Trustpilot dans le champ ci-dessus."
                                 }
                             </p>
