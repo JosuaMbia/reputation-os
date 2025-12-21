@@ -17,40 +17,32 @@ export async function getDashboardData() {
   const reviews = business.reviews;
   const totalReviews = reviews.length;
   
-  // 1. Calcul de la Note Moyenne
+  // 1. Note Moyenne
   const averageRating = totalReviews > 0
     ? (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews)
     : 0;
 
-  // 2. Calcul de la Distribution (Pour le graphique en Barres)
-  // On veut un tableau [nb 1 étoile, nb 2 étoiles, ..., nb 5 étoiles]
+  // 2. Distribution (Barres)
   const distribution = [0, 0, 0, 0, 0];
   reviews.forEach(r => {
     const star = Math.round(r.rating);
-    if (star >= 1 && star <= 5) {
-        distribution[star - 1]++; // star-1 car l'index commence à 0
-    }
+    if (star >= 1 && star <= 5) distribution[star - 1]++;
   });
 
-  // 3. Calcul de la Timeline (Pour le graphique en Ligne) - 6 derniers mois
+  // 3. Timeline (Courbe - 6 derniers mois)
   const timelineLabels: string[] = [];
   const timelineData: number[] = [];
   
-  // On génère les 6 derniers mois
   for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
-      
-      // Label (ex: "Juin")
       const monthName = d.toLocaleDateString('fr-FR', { month: 'short' });
       timelineLabels.push(monthName);
-
-      // On compte les avis de ce mois-ci
+      
       const count = reviews.filter(r => {
-          const rDate = new Date(r.date); // ou r.reviewDate selon votre schema
+          const rDate = new Date(r.date); 
           return rDate.getMonth() === d.getMonth() && rDate.getFullYear() === d.getFullYear();
       }).length;
-      
       timelineData.push(count);
   }
 
@@ -59,7 +51,6 @@ export async function getDashboardData() {
     rating: averageRating, 
     ratingDisplay: averageRating.toFixed(1),
     totalReviews,
-    // 👇 Les données formatées exactement pour votre composant
     distribution, 
     timelineLabels,
     timelineData
