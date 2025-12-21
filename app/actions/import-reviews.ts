@@ -16,7 +16,6 @@ export async function scrapeAndSaveReviews(input: string) {
     const business = await prisma.business.findFirst({ where: { userId } });
     if (!business) return { success: false, error: "Business introuvable" };
 
-    // 1. DÉTECTION : URL ou RECHERCHE ?
     const isUrl = input.trim().toLowerCase().startsWith("http");
     const isTrustpilot = input.toLowerCase().includes("trustpilot.com");
 
@@ -27,70 +26,66 @@ export async function scrapeAndSaveReviews(input: string) {
         if (isTrustpilot) {
             // --- CAS TRUSTPILOT ---
             source = "trustpilot";
-            console.log(`🚀 Trustpilot : ${input}`);
-            await prisma.business.update({ where: { id: business.id }, data: { trustpilotUrl: input }});
-
             const run = await apifyClient.actor("varys/trustpilot-scraper").call({
                 startUrls: [{ url: input }],
-                maxItems: 30,
+                maxItems: 20,
             });
             const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
             reviewsData = items;
-
         } else {
-            // --- CAS GOOGLE MAPS ---
+            // --- CAS GOOGLE MAPS (Avec VOTRE robot) ---
             source = "google";
             console.log(`🚀 Google Maps (${isUrl ? 'URL' : 'Recherche'}) : ${input}`);
 
-            // On utilise le robot SPÉCIALISÉ AVIS (plus fiable pour ce besoin)
-            // ID: compass/google-maps-reviews-crawler
+            // Configuration spécifique pour 'compass/crawler-google-places'
             const actorInput = {
-                // Si c'est une URL, on utilise 'startUrls', sinon 'searchTerms'
-                [isUrl ? "startUrls" : "searchTerms"]: [isUrl ? { url: input } : input],
-                maxReviews: 30,
+                // Si c'est une URL on utilise startUrls, sinon searchStrings
+                [isUrl ? "startUrls" : "searchStrings"]: [isUrl ? { url: input } : input],
+                maxReviews: 30,           
+                reviewsSort: "newest",    
                 language: "fr",
-                personalData: false // Respect RGPD
+                scrapeReviews: true,      // OBLIGATOIRE pour avoir les avis
+                maxPlacesPerCrawl: 1,     // On veut juste le premier résultat qui correspond
             };
 
-            const run = await apifyClient.actor("compass/google-maps-reviews-crawler").call(actorInput);
+            // ✅ ON UTILISE LE BON ID (Celui de votre capture)
+            const run = await apifyClient.actor("compass/crawler-google-places").call(actorInput);
             
-            // Récupération des résultats
+            // Ce robot retourne des "Lieux", pas directement des avis
             const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
-            reviewsData = items;
 
-            // AUTO-CORRECTION : Si c'était une recherche, on sauvegarde l'URL trouvée pour le QR Code
-            if (!isUrl && items.length > 0) {
-                // Ce robot renvoie souvent l'URL dans 'googleUrl' ou 'url'
-                const foundUrl = (items[0] as any).url || (items[0] as any).googleUrl;
-                if (foundUrl) {
-                    await prisma.business.update({ 
-                        where: { id: business.id }, 
-                        data: { googleUrl: foundUrl }
-                    });
-                }
-            } else if (isUrl) {
+            if (!items || items.length === 0) {
+                return { success: false, error: "Aucun établissement trouvé. Essayez d'être plus précis (ex: 'Midas Osny')." };
+            }
+
+            // On prend le premier établissement trouvé
+            const place = items[0];
+            
+            // On extrait les avis qui sont DANS l'objet place
+            reviewsData = place.reviews || [];
+
+            // Petit fix : Si c'était une recherche, on sauve la vraie URL pour le QR Code
+            if (!isUrl && (place.url || place.googleUrl)) {
                 await prisma.business.update({ 
                     where: { id: business.id }, 
-                    data: { googleUrl: input }
+                    data: { googleUrl: place.url || place.googleUrl } 
                 });
             }
         }
 
-        if (!reviewsData || reviewsData.length === 0) {
-            return { success: false, error: "Aucun avis trouvé. Essayez une recherche plus simple (ex: 'Nom Ville')." };
+        if (reviewsData.length === 0) {
+            return { success: false, error: "L'établissement a été trouvé mais ne contient aucun avis." };
         }
 
-        // 3. SAUVEGARDE EN BASE
+        // 3. SAUVEGARDE
         let count = 0;
-        
         for (const item of reviewsData) {
-            const content = item.text || item.content || item.reviewBody || "";
-            // ID unique solide
+            const content = item.text || item.content || ""; 
+            
             const externalId = item.reviewId || item.id || `auto-${source}-${Date.now()}-${Math.random()}`;
             const rating = item.stars || item.rating || 0;
-            const authorName = item.name || item.reviewerName || "Client";
+            const authorName = item.name || item.reviewerName || "Client Google";
             
-            // Date : On gère les différents formats
             let dateStr = item.publishedAtDate || item.date || new Date().toISOString();
 
             await prisma.review.upsert({
@@ -121,10 +116,6 @@ export async function scrapeAndSaveReviews(input: string) {
 
     } catch (error: any) {
         console.error("Erreur Scraping:", error);
-        // Gestion spécifique de l'erreur "Actor not found" pour vous guider
-        if (error.message.includes("Actor with this name was not found")) {
-             return { success: false, error: "Erreur config Apify : Le robot 'compass/google-maps-reviews-crawler' n'est pas actif sur votre compte." };
-        }
         return { success: false, error: "Erreur technique : " + error.message };
     }
 }
