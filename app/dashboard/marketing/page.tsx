@@ -25,6 +25,7 @@ export default async function MarketingPage() {
             include: { 
                 review: true,   // ✅ On inclut l'avis pour le contexte
                 business: true  // ✅ On inclut le business pour le type (Garage/Boulangerie)
+                }
         }
     }
   });
