@@ -2,8 +2,9 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ReviewsImporter } from "@/components/reviews-importer";
-import { ReviewCard } from "@/components/review-card"; // Réutilisation de votre jolie carte
+import { ReviewCard } from "@/components/review-card";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs"; // ✅ Import du Fil d'Ariane
 
 export default async function ReviewsPage() {
     const { userId } = await auth();
@@ -19,6 +20,7 @@ export default async function ReviewsPage() {
         }
     });
 
+    // Si pas de business, on redirige ou on affiche une erreur
     if (!business) {
         return (
             <div className="min-h-screen p-8 text-center flex flex-col items-center justify-center">
@@ -36,23 +38,29 @@ export default async function ReviewsPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
             <div className="max-w-4xl mx-auto">
                 
+                {/* ✅ 1. FIL D'ARIANE (Navigation fluide) */}
+                <div className="mb-6">
+                    <Breadcrumbs />
+                </div>
+
                 {/* En-tête */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                           ⭐ Gestion des Avis
+                           💬 Gestion des Avis
                         </h1>
                         <p className="text-gray-500 dark:text-gray-400 mt-1">
                             Centralisez vos avis Google & Trustpilot et répondez avec l'IA.
                         </p>
                     </div>
-                    <Link href="/dashboard" className="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 transition">
-                        ← Retour Dashboard
-                    </Link>
+                    {/* Le bouton retour manuel est devenu optionnel grâce au fil d'ariane, mais on peut le garder ou l'enlever */}
                 </div>
 
-                {/* --- ZONE D'IMPORT (NOUVEAU) --- */}
-                <div className="mb-10">
+                {/* --- ZONE D'IMPORT --- */}
+                <div className="mb-10 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                        Ajouter une source
+                    </h3>
                     <ReviewsImporter />
                 </div>
 
@@ -72,7 +80,6 @@ export default async function ReviewsPage() {
                                 key={review.id} 
                                 review={{
                                     ...review, 
-                                    // Adaptation des champs si nécessaire pour matcher votre ReviewCard
                                     businessId: business.id
                                 }} 
                             />
