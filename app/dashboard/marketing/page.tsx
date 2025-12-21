@@ -19,9 +19,12 @@ export default async function MarketingPage() {
             take: 3,
             orderBy: { reviewDate: 'desc' }
         },
-        // On récupère les posts déjà créés
+       // 👇 C'EST ICI QU'IL FALLAIT METTRE LE CODE
         SocialPost: {
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            include: { 
+                review: true,   // ✅ On inclut l'avis pour le contexte
+                business: true  // ✅ On inclut le business pour le type (Garage/Boulangerie)
         }
     }
   });

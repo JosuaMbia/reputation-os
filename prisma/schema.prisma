@@ -188,11 +188,3 @@ model SocialPost {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
- // ... dans la requête prisma ...
-SocialPost: {
-    orderBy: { createdAt: 'desc' },
-    include: { // ✅ AJOUTEZ CECI
-        review: true,
-        business: true
-    }
-}
