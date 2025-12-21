@@ -1,4 +1,4 @@
-import { Breadcrumbs } from "@/components/breadcrumbs"; // ✅ L'import qui manquait
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CsvImporter } from "@/components/csv-importer";
 
 export default function CampaignsPage() {
@@ -21,10 +21,8 @@ export default function CampaignsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
             {/* COLONNE GAUCHE : IMPORTATEUR */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 h-fit">
-                <h3 className="font-bold text-lg mb-4 dark:text-white flex items-center gap-2">
-                    📂 Import CSV (Campagne de masse)
-                </h3>
+            {/* ✅ CORRECTION : On a retiré le cadre blanc et le titre h3 en doublon */}
+            <div>
                 <CsvImporter />
             </div>
             

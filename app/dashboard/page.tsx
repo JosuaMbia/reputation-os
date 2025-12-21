@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getDashboardData } from "@/app/actions/get-dashboard-data";
 import { AnalyticsCharts } from "@/components/analytics-chart";
-import { QrCodeCard, SmsCard } from "@/components/dashboard-actions";
-import { SwotAnalysis } from "@/components/swot-analysis"; // ✅ On garde l'import
+import { QrCodeCard, SmsCard } from "@/components/dashboard-actions"; // ✅ SmsCard est bien là
+import { SwotAnalysis } from "@/components/swot-analysis";
 import { Settings, Info } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -17,7 +17,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         
         {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
@@ -62,54 +62,57 @@ export default async function DashboardPage() {
 
             {/* GRAPHIQUES */}
             <div className="lg:col-span-2">
-                <AnalyticsCharts distribution={data.distribution} timelineLabels={data.timelineLabels} timelineData={data.timelineData} />
+                <AnalyticsCharts distribution={data.distribution} timelineData={data.timelineData} />
             </div>
         </div>
 
-        {/* --- ZONE 2 : SWOT INTERACTIF (Le seul, l'unique !) --- */}
-        {/* J'ai supprimé l'ancien bloc HTML statique ici */}
+        {/* --- ZONE 2 : SWOT INTERACTIF --- */}
         <SwotAnalysis 
             strengths={data.strengths} 
             weaknesses={data.weaknesses} 
         />
 
-        {/* --- ZONE 3 : ACTIONS --- */}
-        <h2 className="text-xl font-bold text-gray-900 mt-8">🚀 Actions de Croissance</h2>
+        {/* --- ZONE 3 : ACTIONS DE CROISSANCE (4 cartes maintenant) --- */}
+        <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">🚀 Actions de Croissance</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* ✅ GRILLE ADAPTÉE POUR 4 ÉLÉMENTS (md: 2 colonnes, xl: 4 colonnes) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             
-            {/* CARTE STUDIO MARKETING (Nouveau) */}
-            <div className="bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl p-6 text-white shadow-lg cursor-pointer transition hover:-translate-y-1 flex flex-col">
+            {/* 1. STUDIO MARKETING */}
+            <div className="bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl p-6 text-white shadow-lg cursor-pointer transition hover:-translate-y-1 flex flex-col h-full">
                 <div className="flex justify-between items-start mb-4">
                     <span className="text-3xl bg-white/20 p-2 rounded-lg">🎨</span>
                     <span className="bg-white text-pink-600 text-[10px] font-bold px-2 py-1 rounded uppercase">Nouveau</span>
                 </div>
                 <h3 className="font-bold text-lg mb-1">Studio Marketing IA</h3>
                 <p className="text-pink-100 text-sm mb-6 flex-1">
-                    Transformez vos avis 5 étoiles en posts Instagram prêts à publier.
+                    Créez des posts Instagram viraux à partir de vos avis.
                 </p>
-                <Link href="/dashboard/marketing" className="block w-full text-center bg-white text-pink-600 font-bold py-3 rounded-lg hover:bg-pink-50 transition shadow-sm">
+                <Link href="/dashboard/marketing" className="block w-full text-center bg-white text-pink-600 font-bold py-3 rounded-lg hover:bg-pink-50 transition shadow-sm mt-auto">
                     Créer des posts →
                 </Link>
             </div>
 
-            {/* CARTE MASSIVE (Désactivée ou Lien vers campagnes) */}
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg cursor-pointer transition hover:-translate-y-1 flex flex-col">
+            {/* 2. CAMPAGNE DE MASSE */}
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg cursor-pointer transition hover:-translate-y-1 flex flex-col h-full">
                  <div className="flex justify-between items-start mb-4">
                     <span className="text-3xl bg-white/20 p-2 rounded-lg">📢</span>
                     <span className="bg-orange-400 text-white text-[10px] font-bold px-2 py-1 rounded uppercase">Recommandé</span>
                 </div>
                 <h3 className="font-bold text-lg mb-1">Campagne de Masse</h3>
                 <p className="text-blue-100 text-sm mb-6 flex-1">
-                    Envoyez 50 SMS d'un coup pour noyer les avis négatifs.
+                    Envoyez 50 SMS d'un coup pour booster vos avis.
                 </p>
-                <Link href="/dashboard/campaigns" className="block w-full text-center bg-white text-blue-600 font-bold py-3 rounded-lg hover:bg-blue-50 transition">
-                    Lancer une campagne →
+                <Link href="/dashboard/campaigns" className="block w-full text-center bg-white text-blue-600 font-bold py-3 rounded-lg hover:bg-blue-50 transition mt-auto">
+                    Lancer campagne →
                 </Link>
             </div>
 
-            {/* CARTE QR CODE (Actif) */}
+            {/* 3. QR CODE (Composant existant) */}
             <QrCodeCard googleUrl={data.googleUrl} />
+
+            {/* 4. ✅ SMS UNITAIRE (Réintégré !) */}
+            <SmsCard />
 
         </div>
       </div>
