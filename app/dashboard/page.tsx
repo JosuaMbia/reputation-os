@@ -71,6 +71,47 @@ export default async function DashboardPage() {
         <h2 className="text-xl font-bold text-gray-900 mt-8">🚀 Actions de Croissance</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+          {/* --- ZONE 3 : ANALYSE FORCES & FAIBLESSES (SWOT) --- */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+    
+    {/* FORCES */}
+    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-6 rounded-xl">
+        <h3 className="flex items-center gap-2 font-bold text-green-800 dark:text-green-300 mb-4">
+            <span className="bg-green-200 p-1 rounded">💪</span> Vos Forces Détectées
+        </h3>
+        {data.strengths.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+                {data.strengths.map((item: string, i: number) => (
+                    <span key={i} className="px-3 py-1 bg-white dark:bg-green-800 text-green-700 dark:text-green-100 rounded-full text-sm font-medium shadow-sm border border-green-100">
+                        {item}
+                    </span>
+                ))}
+            </div>
+        ) : (
+            <p className="text-sm text-green-600 italic">Pas assez de données pour confirmer vos forces.</p>
+        )}
+    </div>
+
+    {/* FAIBLESSES */}
+    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6 rounded-xl">
+        <h3 className="flex items-center gap-2 font-bold text-red-800 dark:text-red-300 mb-4">
+            <span className="bg-red-200 p-1 rounded">⚠️</span> Points d'Amélioration
+        </h3>
+        {data.weaknesses.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+                {data.weaknesses.map((item: string, i: number) => (
+                    <span key={i} className="px-3 py-1 bg-white dark:bg-red-800 text-red-700 dark:text-red-100 rounded-full text-sm font-medium shadow-sm border border-red-100">
+                        {item}
+                    </span>
+                ))}
+            </div>
+        ) : (
+            <p className="text-sm text-red-600 italic">Aucune faiblesse majeure détectée. Bravo !</p>
+        )}
+    </div>
+
+</div>
             
             {/* CARTE 1 : MASSE */}
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg cursor-pointer transition hover:-translate-y-1 flex flex-col">

@@ -10,67 +10,98 @@ const apifyClient = new ApifyClient({
     token: process.env.APIFY_API_TOKEN,
 });
 
-export async function scrapeAndSaveReviews(url: string) {
+export async function scrapeAndSaveReviews(input: string) {
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Non autorisé" };
 
-    // 1. Récupérer le business de l'utilisateur
+    // 1. Récupérer le business
     const business = await prisma.business.findFirst({ where: { userId } });
     if (!business) return { success: false, error: "Business introuvable" };
 
     let reviewsData = [];
-    let source = "";
+    let source = "google"; // Par défaut
+    
+    // 2. INTELLIGENCE : EST-CE UNE URL OU UNE RECHERCHE ? 🧠
+    // On regarde si ça commence par http (URL) ou si c'est du texte (Recherche)
+    const isUrl = input.trim().toLowerCase().startsWith("http");
+    const isTrustpilot = input.toLowerCase().includes("trustpilot.com");
 
     try {
-        // 2. DÉTECTION DE LA SOURCE (GOOGLE OU TRUSTPILOT)
-        if (url.includes("google.com/maps") || url.includes("goo.gl")) {
-            source = "google";
-            // On sauvegarde l'URL pour la prochaine fois
-            await prisma.business.update({ where: { id: business.id }, data: { googleUrl: url }});
-            
-            // Lancement du Robot Google Maps (Actor: compass/google-maps-reviews-crawler)
-            console.log("🚀 Lancement du scraping Google...");
-            const run = await apifyClient.actor("compass/google-maps-reviews-crawler").call({
-                startUrls: [{ url: url }],
-                maxReviews: 20, // On limite à 20 pour le test (économise vos crédits)
-                language: "fr",
-            });
-            // Récupération des résultats
-            const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
-            reviewsData = items;
-
-        } else if (url.includes("trustpilot.com")) {
+        if (isTrustpilot) {
+            // --- CAS TRUSTPILOT (URL UNIQUEMENT) ---
             source = "trustpilot";
-            await prisma.business.update({ where: { id: business.id }, data: { trustpilotUrl: url }});
+            // Sauvegarde de l'URL TP
+            await prisma.business.update({ where: { id: business.id }, data: { trustpilotUrl: input }});
 
-            // Lancement du Robot Trustpilot (Actor: varys/trustpilot-scraper)
-            console.log("🚀 Lancement du scraping Trustpilot...");
+            console.log("🚀 Lancement scraping Trustpilot...");
             const run = await apifyClient.actor("varys/trustpilot-scraper").call({
-                startUrls: [{ url: url }],
+                startUrls: [{ url: input }],
                 maxItems: 20,
             });
             const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
             reviewsData = items;
+
         } else {
-            return { success: false, error: "URL non reconnue (Google Maps ou Trustpilot uniquement)" };
+            // --- CAS GOOGLE (URL OU RECHERCHE "MAGIQUE") ---
+            source = "google";
+            console.log(`🚀 Lancement Google Maps pour : "${input}" (Mode: ${isUrl ? 'URL' : 'Recherche'})`);
+
+            // Configuration intelligente de l'Actor
+            const actorInput = isUrl 
+                ? { startUrls: [{ url: input }], maxReviews: 20, language: "fr" } // Mode URL
+                : { searchTerms: [input], maxReviews: 20, language: "fr" };       // Mode Recherche par nom
+
+            const run = await apifyClient.actor("compass/google-maps-reviews-crawler").call(actorInput);
+            
+            // Récupération des résultats
+            const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+            reviewsData = items;
+
+            // 🚨 AUTO-CORRECTION : Si c'était une recherche par nom, on récupère l'URL trouvée
+            // pour la sauvegarder en BDD. Comme ça, le QR Code fonctionnera !
+            if (!isUrl && items.length > 0) {
+                // L'actor renvoie souvent l'URL dans les propriétés de l'avis ou via un champ 'googleUrl' / 'placeUrl'
+                // Note: La structure dépend de l'actor exact, on prend ici 'url' ou 'googleUrl' si dispo
+                const foundUrl = (items[0] as any).googleUrl || (items[0] as any).placeUrl || (items[0] as any).url;
+                
+                if (foundUrl && foundUrl.includes("google")) {
+                    console.log("✅ URL trouvée via recherche :", foundUrl);
+                    await prisma.business.update({ 
+                        where: { id: business.id }, 
+                        data: { googleUrl: foundUrl }
+                    });
+                }
+            } else if (isUrl) {
+                // Si c'était déjà une URL, on la sauvegarde simplement
+                await prisma.business.update({ 
+                    where: { id: business.id }, 
+                    data: { googleUrl: input }
+                });
+            }
         }
 
-        // 3. TRANSFORMATION & SAUVEGARDE EN BASE
+        if (!reviewsData || reviewsData.length === 0) {
+            return { success: false, error: "Aucun avis trouvé. Vérifiez le nom ou l'URL." };
+        }
+
+        // 3. TRANSFORMATION & SAUVEGARDE (Inchangé)
         let count = 0;
         
         for (const item of reviewsData) {
-            // Normalisation des données car Google et Trustpilot ont des formats différents
-            const externalId = item.id || item.reviewId || `generated-${Date.now()}-${Math.random()}`;
+            // Mapping des champs (Gère les variations selon l'actor)
             const content = item.text || item.reviewBody || item.content || "";
-            // Si pas de texte, on ignore l'avis (inutile pour l'IA)
-            if (!content) continue;
+            if (!content) continue; // On ignore les avis sans texte
 
-            const rating = item.stars || item.rating || 0;
-            const authorName = item.name || item.reviewerName || "Anonyme";
-            // Gestion de la date (parfois complexe selon le format retourné)
-            const dateStr = item.publishedAtDate || item.date || new Date().toISOString();
+            // Création d'un ID unique si l'actor n'en donne pas
+            const externalId = item.id || item.reviewId || `auto-${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             
-            // On utilise "upsert" pour ne pas créer de doublons si on re-scrape
+            const rating = item.stars || item.rating || 0;
+            const authorName = item.name || item.reviewerName || item.authorTitle || "Anonyme";
+            
+            // Gestion de la date
+            let dateStr = item.publishedAtDate || item.date;
+            if (!dateStr) dateStr = new Date().toISOString();
+
             await prisma.review.upsert({
                 where: {
                     source_externalId: {
@@ -78,7 +109,7 @@ export async function scrapeAndSaveReviews(url: string) {
                         externalId: String(externalId),
                     }
                 },
-                update: {}, // Si existe déjà, on ne touche à rien
+                update: {},
                 create: {
                     source: source,
                     externalId: String(externalId),
@@ -92,11 +123,13 @@ export async function scrapeAndSaveReviews(url: string) {
             count++;
         }
 
-        revalidatePath("/dashboard/reviews");
-        return { success: true, message: `${count} avis importés avec succès depuis ${source} !` };
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/reviews"); // Rafraîchit les deux pages
+        
+        return { success: true, message: `${count} avis importés et analysés !` };
 
     } catch (error: any) {
         console.error("Erreur Scraping:", error);
-        return { success: false, error: "Erreur lors de l'importation : " + error.message };
+        return { success: false, error: "Erreur technique : " + (error.message || "Le robot n'a pas répondu.") };
     }
 }

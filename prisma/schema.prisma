@@ -49,6 +49,7 @@ model Business {
 
   googleUrl     String?   // Le ? signifie que c'est optionnel
   trustpilotUrl String?
+  focusAreas    String?   // Ex: "Rapidité, Cuisson, Amabilité"
 
   // --- 3. Configuration Stripe (Abonnement) ---
   stripeCustomerId       String?   @unique 

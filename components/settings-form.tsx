@@ -110,6 +110,23 @@ export function SettingsForm({ business, isPro }: SettingsFormProps) {
                     <input name="seoKeywords" defaultValue={business.seoKeywords || ""} placeholder="Ex: meilleur croissant, sandwich frais..." className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-900 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
 
+                {/* POINTS D'ATTENTION (NOUVEAU) */}
+<div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+    <h3 className="text-lg font-semibold mb-4 dark:text-white">🎯 Mes Priorités (Pour l'analyse IA)</h3>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        Sur quels critères voulez-vous être jugé ? (séparés par des virgules)
+    </label>
+    <input 
+        name="focusAreas" 
+        defaultValue={business.focusAreas || ""} 
+        placeholder="Ex: Rapidité de livraison, Amabilité, Propreté..." 
+        className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-900 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" 
+    />
+    <p className="text-xs text-gray-400 mt-2">
+        L'IA utilisera ces critères pour identifier vos Forces et Faiblesses dans le Dashboard.
+    </p>
+</div>
+
                 {/* TON & SIGNATURE */}
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <h3 className="text-lg font-semibold mb-4 dark:text-white">🎭 Ton & Signature</h3>

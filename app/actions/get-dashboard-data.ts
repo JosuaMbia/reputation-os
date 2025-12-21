@@ -17,19 +17,19 @@ export async function getDashboardData() {
   const reviews = business.reviews;
   const totalReviews = reviews.length;
   
-  // 1. Calculs Note
+  // 1. Calculs Note Moyenne
   const averageRating = totalReviews > 0
     ? (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews)
     : 0;
 
-  // 2. Distribution
+  // 2. Distribution (Barres 1-5 étoiles)
   const distribution = [0, 0, 0, 0, 0];
   reviews.forEach(r => {
     const star = Math.round(r.rating);
     if (star >= 1 && star <= 5) distribution[star - 1]++;
   });
 
-  // 3. Timeline
+  // 3. Timeline (6 derniers mois)
   const timelineLabels: string[] = [];
   const timelineData: number[] = [];
   for (let i = 5; i >= 0; i--) {
@@ -44,7 +44,7 @@ export async function getDashboardData() {
       timelineData.push(count);
   }
 
-  // 4. 🚨 ANALYSE INTELLIGENTE (Le Diagnostic)
+  // 4. 🚨 DIAGNOSTIC GLOBAL (Texte)
   let diagnostic = "Tout semble calme.";
   let advice = "Continuez à solliciter vos clients.";
 
@@ -52,10 +52,7 @@ export async function getDashboardData() {
       diagnostic = "Manque de données.";
       advice = "Importez vos avis ou commencez une campagne SMS.";
   } else if (averageRating < 4.0) {
-      // Analyse des points faibles
       const badReviews = reviews.filter(r => r.rating <= 3);
-      const recentBad = badReviews.slice(0, 3);
-      
       diagnostic = `Trop d'avis négatifs récents (${badReviews.length} avis ≤ 3★).`;
       advice = "Il faut 'noyer' ces avis. Lancez une campagne SMS massive pour obtenir 10 avis 5★ rapidement.";
   } else if (totalReviews < 10) {
@@ -66,16 +63,56 @@ export async function getDashboardData() {
       advice = "Profitez de cette note pour augmenter vos prix ou votre visibilité.";
   }
 
+  // 5. 🧠 ANALYSE SWOT (Forces & Faiblesses par Mots-clés)
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  
+  // Mots-clés par défaut si le client n'a rien mis dans les Settings
+  const defaultKeywords = ['service', 'accueil', 'prix', 'qualité', 'rapidité', 'livraison', 'propreté'];
+  
+  const focusKeywords = business.focusAreas 
+    ? business.focusAreas.split(',').map(s => s.trim().toLowerCase()) 
+    : defaultKeywords;
+
+  focusKeywords.forEach(keyword => {
+      if(!keyword) return;
+
+      // On cherche les avis contenant ce mot (insensible à la casse)
+      const relatedReviews = reviews.filter(r => (r.content || "").toLowerCase().includes(keyword));
+      
+      if (relatedReviews.length > 0) {
+          // Calcul de la note moyenne sur ce sujet précis
+          const topicScore = relatedReviews.reduce((acc, r) => acc + r.rating, 0) / relatedReviews.length;
+          
+          // Mise en forme du mot (1ère lettre majuscule)
+          const prettyKeyword = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+
+          if (topicScore >= 4.0) {
+              strengths.push(`${prettyKeyword} (${topicScore.toFixed(1)}★)`);
+          } else if (topicScore <= 3.8) {
+              weaknesses.push(`${prettyKeyword} (${topicScore.toFixed(1)}★)`);
+          }
+      }
+  });
+
+  // Fallback si rien trouvé (pour éviter les cases vides)
+  if (strengths.length === 0 && averageRating >= 4) strengths.push("Satisfaction Générale");
+  if (weaknesses.length === 0 && averageRating < 3.5) weaknesses.push("Expérience Globale");
+
   return {
     name: business.name,
-    googleUrl: business.googleUrl, // Important pour le QR Code
+    googleUrl: business.googleUrl,
     rating: averageRating, 
     ratingDisplay: averageRating.toFixed(1),
     totalReviews,
     distribution, 
     timelineLabels,
     timelineData,
-    diagnostic, // ✅ NOUVEAU
-    advice      // ✅ NOUVEAU
+    diagnostic,
+    advice,
+    // ✅ NOUVEAUX CHAMPS SWOT
+    strengths,
+    weaknesses,
+    focusAreas: business.focusAreas
   };
 }
