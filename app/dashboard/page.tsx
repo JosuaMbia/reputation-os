@@ -112,6 +112,20 @@ export default async function DashboardPage() {
     </div>
 
 </div>
+            {/* CARTE : STUDIO MARKETING (NOUVEAU) */}
+<div className="bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl p-6 text-white shadow-lg cursor-pointer transition hover:-translate-y-1 flex flex-col">
+    <div className="flex justify-between items-start mb-4">
+        <span className="text-3xl bg-white/20 p-2 rounded-lg">🎨</span>
+        <span className="bg-white text-pink-600 text-[10px] font-bold px-2 py-1 rounded uppercase">Nouveau</span>
+    </div>
+    <h3 className="font-bold text-lg mb-1">Studio Marketing IA</h3>
+    <p className="text-pink-100 text-sm mb-6 flex-1">
+        Transformez vos avis 5 étoiles en posts Instagram prêts à publier.
+    </p>
+    <Link href="/dashboard/marketing" className="block w-full text-center bg-white text-pink-600 font-bold py-3 rounded-lg hover:bg-pink-50 transition shadow-sm">
+        Créer des posts →
+    </Link>
+</div>
             
             {/* CARTE 1 : MASSE */}
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg cursor-pointer transition hover:-translate-y-1 flex flex-col">
