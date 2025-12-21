@@ -5,7 +5,7 @@ export default function CampaignsPage() {
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-2">Campagnes SMS</h1>
       <p className="text-gray-500 mb-8">Importez une liste de clients pour solliciter des avis en masse.</p>
-      
+      <Breadcrumbs /> {/* ✅ AJOUT ICI */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
           <CsvImporter />

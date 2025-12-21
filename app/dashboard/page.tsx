@@ -6,6 +6,7 @@ import { getDashboardData } from "@/app/actions/get-dashboard-data";
 import { AnalyticsCharts } from "@/components/analytics-chart";
 import { QrCodeCard, SmsCard } from "@/components/dashboard-actions"; // ✅ Nos nouveaux boutons actifs
 import { Settings, Info } from "lucide-react";
+import { SwotAnalysis } from "@/components/swot-analysis"; // ✅ IMPORT
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -73,6 +74,10 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
           {/* --- ZONE 3 : ANALYSE FORCES & FAIBLESSES (SWOT) --- */}
+          <SwotAnalysis 
+    strengths={data.strengths} 
+    weaknesses={data.weaknesses}
+    />
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
     
     {/* FORCES */}
@@ -99,17 +104,18 @@ export default async function DashboardPage() {
             <span className="bg-red-200 p-1 rounded">⚠️</span> Points d'Amélioration
         </h3>
         {data.weaknesses.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-                {data.weaknesses.map((item: string, i: number) => (
-                    <span key={i} className="px-3 py-1 bg-white dark:bg-red-800 text-red-700 dark:text-red-100 rounded-full text-sm font-medium shadow-sm border border-red-100">
-                        {item}
-                    </span>
-                ))}
-            </div>
-        ) : (
-            <p className="text-sm text-red-600 italic">Aucune faiblesse majeure détectée. Bravo !</p>
-        )}
-    </div>
+           // ✅ CORRECTION : flex-wrap permet aux bulles de passer à la ligne
+        <div className="flex flex-wrap gap-2"> 
+            {data.weaknesses.map((item: string, i: number) => (
+                <span key={i} className="px-3 py-1 bg-white dark:bg-red-800 text-red-700 dark:text-red-100 rounded-full text-sm font-medium shadow-sm border border-red-100 whitespace-normal text-center">
+                    {item}
+                </span>
+            ))}
+        </div>
+    ) : (
+        <p className="text-sm text-red-600 italic">Aucune faiblesse majeure.</p>
+    )}
+</div>
 
 </div>
             {/* CARTE : STUDIO MARKETING (NOUVEAU) */}

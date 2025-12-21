@@ -4,23 +4,28 @@ import { redirect } from "next/navigation";
 import { ReviewsImporter } from "@/components/reviews-importer";
 import { ReviewCard } from "@/components/review-card";
 import Link from "next/link";
-import { Breadcrumbs } from "@/components/breadcrumbs"; // ✅ Import du Fil d'Ariane
+import { Breadcrumbs } from "@/components/breadcrumbs"; 
 
-export default async function ReviewsPage() {
+// ✅ Modification de la signature pour accepter les paramètres d'URL
+export default async function ReviewsPage({ searchParams }: { searchParams: { rating?: string } }) {
     const { userId } = await auth();
     if (!userId) redirect("/");
 
-    // On récupère le business ET ses avis triés par date
+    // 1. On récupère le filtre (ex: ?rating=5)
+    const ratingFilter = searchParams.rating ? parseInt(searchParams.rating) : undefined;
+
+    // 2. On récupère le business avec les avis FILTRÉS
     const business = await prisma.business.findFirst({
         where: { userId },
         include: { 
             reviews: { 
+                // Si un filtre existe, on l'applique, sinon on prend tout
+                where: ratingFilter ? { rating: ratingFilter } : undefined,
                 orderBy: { reviewDate: 'desc' } 
             } 
         }
     });
 
-    // Si pas de business, on redirige ou on affiche une erreur
     if (!business) {
         return (
             <div className="min-h-screen p-8 text-center flex flex-col items-center justify-center">
@@ -38,7 +43,7 @@ export default async function ReviewsPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
             <div className="max-w-4xl mx-auto">
                 
-                {/* ✅ 1. FIL D'ARIANE (Navigation fluide) */}
+                {/* FIL D'ARIANE */}
                 <div className="mb-6">
                     <Breadcrumbs />
                 </div>
@@ -53,26 +58,55 @@ export default async function ReviewsPage() {
                             Centralisez vos avis Google & Trustpilot et répondez avec l'IA.
                         </p>
                     </div>
-                    {/* Le bouton retour manuel est devenu optionnel grâce au fil d'ariane, mais on peut le garder ou l'enlever */}
                 </div>
 
-                {/* --- ZONE D'IMPORT --- */}
-                <div className="mb-10 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                {/* ZONE D'IMPORT */}
+                <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
                         Ajouter une source
                     </h3>
                     <ReviewsImporter />
                 </div>
 
-                {/* --- LISTE DES AVIS --- */}
+                {/* ✅ 3. INDICATEUR DE FILTRE ACTIF */}
+                {ratingFilter && (
+                    <div className="mb-6 animate-in slide-in-from-top-2">
+                        <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200 px-4 py-3 rounded-lg flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                                <span className="text-lg">🔍</span>
+                                <span>Affichage des avis <b>{ratingFilter} étoiles</b> uniquement.</span>
+                            </span>
+                            <Link 
+                                href="/dashboard/reviews" 
+                                className="text-sm font-bold underline hover:text-indigo-600 dark:hover:text-white"
+                            >
+                                Effacer le filtre
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
+                {/* LISTE DES AVIS */}
                 <div className="space-y-6">
                     {reviews.length === 0 ? (
                         <div className="bg-white dark:bg-gray-800 p-12 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-center">
-                            <div className="text-4xl mb-4">👇</div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">C'est un peu vide ici...</h3>
+                            <div className="text-4xl mb-4">
+                                {ratingFilter ? "🔍" : "👇"}
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                {ratingFilter ? "Aucun avis trouvé" : "C'est un peu vide ici..."}
+                            </h3>
                             <p className="text-gray-500 max-w-md mx-auto">
-                                Commencez par importer vos avis en collant l'URL de votre fiche Google ou Trustpilot dans le champ ci-dessus.
+                                {ratingFilter 
+                                    ? `Vous n'avez aucun avis avec la note de ${ratingFilter}/5.` 
+                                    : "Commencez par importer vos avis en collant l'URL de votre fiche Google ou Trustpilot dans le champ ci-dessus."
+                                }
                             </p>
+                            {ratingFilter && (
+                                <Link href="/dashboard/reviews" className="mt-4 inline-block text-indigo-600 font-bold hover:underline">
+                                    Voir tous les avis
+                                </Link>
+                            )}
                         </div>
                     ) : (
                         reviews.map((review) => (
