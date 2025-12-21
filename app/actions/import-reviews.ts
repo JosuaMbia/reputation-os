@@ -18,91 +18,113 @@ export async function scrapeAndSaveReviews(input: string) {
 
     // 1. DÉTECTION : URL ou RECHERCHE ?
     const isUrl = input.trim().toLowerCase().startsWith("http");
+    const isTrustpilot = input.toLowerCase().includes("trustpilot.com");
+
     let reviewsData: any[] = [];
     let source = "google";
 
     try {
-        console.log(`🚀 Lancement du robot pour : "${input}"`);
+        if (isTrustpilot) {
+            // --- CAS TRUSTPILOT ---
+            source = "trustpilot";
+            console.log(`🚀 Trustpilot : ${input}`);
+            await prisma.business.update({ where: { id: business.id }, data: { trustpilotUrl: input }});
 
-        // 2. CONFIGURATION DU ROBOT (compass/crawler-google-places)
-        // Ce robot utilise 'searchStrings' pour les recherches et 'startUrls' pour les liens directs
-        const actorInput = {
-            [isUrl ? "startUrls" : "searchStrings"]: [isUrl ? { url: input } : input],
-            maxReviews: 20,      // On veut les avis
-            language: "fr",      // En français
-            scrapeReviews: true, // IMPORTANT : On force l'extraction des avis
-            reviewsSort: "newest", // Les plus récents
-            maxImages: 0         // On économise en ne prenant pas les images pour l'instant
-        };
+            const run = await apifyClient.actor("varys/trustpilot-scraper").call({
+                startUrls: [{ url: input }],
+                maxItems: 30,
+            });
+            const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+            reviewsData = items;
 
-        // ✅ CORRECTION DU NOM DU ROBOT
-        const run = await apifyClient.actor("compass/crawler-google-places").call(actorInput);
-        
-        // Récupération des résultats (Ce sont des "Places", pas directement des avis)
-        const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
-        
-        if (!items || items.length === 0) {
-            return { success: false, error: "Aucun établissement trouvé. Essayez d'être plus précis (ex: 'Midas Osny')." };
+        } else {
+            // --- CAS GOOGLE MAPS ---
+            source = "google";
+            console.log(`🚀 Google Maps (${isUrl ? 'URL' : 'Recherche'}) : ${input}`);
+
+            // On utilise le robot SPÉCIALISÉ AVIS (plus fiable pour ce besoin)
+            // ID: compass/google-maps-reviews-crawler
+            const actorInput = {
+                // Si c'est une URL, on utilise 'startUrls', sinon 'searchTerms'
+                [isUrl ? "startUrls" : "searchTerms"]: [isUrl ? { url: input } : input],
+                maxReviews: 30,
+                language: "fr",
+                personalData: false // Respect RGPD
+            };
+
+            const run = await apifyClient.actor("compass/google-maps-reviews-crawler").call(actorInput);
+            
+            // Récupération des résultats
+            const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+            reviewsData = items;
+
+            // AUTO-CORRECTION : Si c'était une recherche, on sauvegarde l'URL trouvée pour le QR Code
+            if (!isUrl && items.length > 0) {
+                // Ce robot renvoie souvent l'URL dans 'googleUrl' ou 'url'
+                const foundUrl = (items[0] as any).url || (items[0] as any).googleUrl;
+                if (foundUrl) {
+                    await prisma.business.update({ 
+                        where: { id: business.id }, 
+                        data: { googleUrl: foundUrl }
+                    });
+                }
+            } else if (isUrl) {
+                await prisma.business.update({ 
+                    where: { id: business.id }, 
+                    data: { googleUrl: input }
+                });
+            }
         }
 
-        // 3. TRAITEMENT DES DONNÉES (Structure spécifique : Place -> Reviews)
+        if (!reviewsData || reviewsData.length === 0) {
+            return { success: false, error: "Aucun avis trouvé. Essayez une recherche plus simple (ex: 'Nom Ville')." };
+        }
+
+        // 3. SAUVEGARDE EN BASE
         let count = 0;
         
-        // On parcourt les établissements trouvés (généralement 1 seul si c'est précis)
-        for (const place of items) {
+        for (const item of reviewsData) {
+            const content = item.text || item.content || item.reviewBody || "";
+            // ID unique solide
+            const externalId = item.reviewId || item.id || `auto-${source}-${Date.now()}-${Math.random()}`;
+            const rating = item.stars || item.rating || 0;
+            const authorName = item.name || item.reviewerName || "Client";
             
-            // A. AUTO-CORRECTION : On sauvegarde l'URL officielle trouvée par le robot
-            // Cela servira pour le QR Code plus tard
-            if ((place.url || place.googleUrl) && !isUrl) {
-                console.log("✅ URL Google détectée :", place.url);
-                await prisma.business.update({
-                    where: { id: business.id },
-                    data: { googleUrl: place.url || place.googleUrl }
-                });
-            }
+            // Date : On gère les différents formats
+            let dateStr = item.publishedAtDate || item.date || new Date().toISOString();
 
-            // B. EXTRACTION DES AVIS DE CET ÉTABLISSEMENT
-            const reviews = place.reviews || []; // Le tableau d'avis est à l'intérieur de l'objet Place
-
-            for (const item of reviews) {
-                const content = item.text || item.content || "";
-                // On garde même les avis sans texte (juste des étoiles) car ça compte pour la moyenne
-                
-                // ID Unique : Certains avis n'ont pas d'ID, on en génère un basé sur l'auteur et la date
-                const externalId = item.reviewId || item.id || `auto-${place.placeId}-${item.name}-${item.publishedAtDate}`;
-                
-                const dateStr = item.publishedAtDate || item.date || new Date().toISOString();
-
-                await prisma.review.upsert({
-                    where: {
-                        source_externalId: {
-                            source: "google",
-                            externalId: String(externalId),
-                        }
-                    },
-                    update: {},
-                    create: {
-                        source: "google",
+            await prisma.review.upsert({
+                where: {
+                    source_externalId: {
+                        source: source,
                         externalId: String(externalId),
-                        authorName: item.name || "Client Google",
-                        rating: Number(item.stars || item.rating || 0),
-                        content: content,
-                        reviewDate: new Date(dateStr),
-                        businessId: business.id,
-                        // On pourrait ajouter response: item.responseFromOwnerText si on voulait récupérer l'existant
                     }
-                });
-                count++;
-            }
+                },
+                update: {},
+                create: {
+                    source: source,
+                    externalId: String(externalId),
+                    authorName: authorName,
+                    rating: Number(rating),
+                    content: content,
+                    reviewDate: new Date(dateStr),
+                    businessId: business.id,
+                }
+            });
+            count++;
         }
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/reviews");
         
-        return { success: true, message: `${count} avis trouvés et importés !` };
+        return { success: true, message: `${count} avis importés avec succès !` };
 
     } catch (error: any) {
         console.error("Erreur Scraping:", error);
-        return { success: false, error: "Erreur technique : " + (error.message || "Problème de connexion Apify") };
+        // Gestion spécifique de l'erreur "Actor not found" pour vous guider
+        if (error.message.includes("Actor with this name was not found")) {
+             return { success: false, error: "Erreur config Apify : Le robot 'compass/google-maps-reviews-crawler' n'est pas actif sur votre compte." };
+        }
+        return { success: false, error: "Erreur technique : " + error.message };
     }
 }
