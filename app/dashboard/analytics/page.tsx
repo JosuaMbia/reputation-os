@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserWithBusiness } from "@/lib/auth-sync";
 import Link from "next/link";
-import { AnalyticsCharts } from "@/components/analytics-charts";
+import { AnalyticsCharts } from "@/components/analytics-chart";
 
 // Fonction utilitaire pour calculer la vélocité
 function calculateVelocity(reviews: any[], days: number) {
