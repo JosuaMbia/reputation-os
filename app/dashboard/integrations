@@ -1,0 +1,76 @@
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Facebook, Linkedin, Instagram, CheckCircle, XCircle } from "lucide-react";
+
+export default async function IntegrationsPage() {
+  const { userId } = await auth();
+  if (!userId) redirect("/");
+
+  const business = await prisma.business.findFirst({
+    where: { userId }
+  });
+
+  if (!business) return <div>Chargement...</div>;
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <Breadcrumbs />
+
+        <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">🔗 Connexions Sociales</h1>
+            <p className="text-gray-500 mt-1">Connectez vos comptes pour permettre à l'IA de publier automatiquement.</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+            
+            {/* FACEBOOK & INSTAGRAM (Gérés ensemble via Meta) */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="bg-blue-600 p-3 rounded-lg text-white">
+                        <Facebook className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-lg dark:text-white">Facebook & Instagram</h3>
+                        <p className="text-sm text-gray-500">Pour publier sur votre Page et Feed.</p>
+                        {business.facebookAccessToken ? (
+                             <span className="text-xs text-green-600 flex items-center gap-1 mt-1 font-bold"><CheckCircle className="w-3 h-3"/> Connecté</span>
+                        ) : (
+                             <span className="text-xs text-gray-400 flex items-center gap-1 mt-1"><XCircle className="w-3 h-3"/> Non connecté</span>
+                        )}
+                    </div>
+                </div>
+                {/* NOTE : Ce bouton devra rediriger vers votre route OAuth plus tard */}
+                <button className={`px-4 py-2 rounded-lg font-bold text-sm transition ${business.facebookAccessToken ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                    {business.facebookAccessToken ? "Compte relié" : "Connecter"}
+                </button>
+            </div>
+
+            {/* LINKEDIN */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="bg-blue-700 p-3 rounded-lg text-white">
+                        <Linkedin className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-lg dark:text-white">LinkedIn</h3>
+                        <p className="text-sm text-gray-500">Pour publier sur votre profil pro ou page entreprise.</p>
+                        {business.linkedinAccessToken ? (
+                             <span className="text-xs text-green-600 flex items-center gap-1 mt-1 font-bold"><CheckCircle className="w-3 h-3"/> Connecté</span>
+                        ) : (
+                             <span className="text-xs text-gray-400 flex items-center gap-1 mt-1"><XCircle className="w-3 h-3"/> Non connecté</span>
+                        )}
+                    </div>
+                </div>
+                <button className={`px-4 py-2 rounded-lg font-bold text-sm transition ${business.linkedinAccessToken ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-blue-700 text-white hover:bg-blue-800'}`}>
+                    {business.linkedinAccessToken ? "Compte relié" : "Connecter"}
+                </button>
+            </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -69,6 +69,16 @@ model Business {
   reviews         Review[]
   customers       Customer[]
   reviewRequests  ReviewRequest[]
+
+  // --- 7. CONNEXIONS RÉSEAUX SOCIAUX (Tokens) ---
+  facebookAccessToken   String? @db.Text
+  facebookPageId        String?
+  
+  instagramAccessToken  String? @db.Text
+  instagramAccountId    String?
+
+  linkedinAccessToken   String? @db.Text
+  linkedinUrn           String? // L'identifiant unique de la personne/page LinkedIn
   
   // ✅ CORRECTION 1 : Ajout de la relation inverse vers SocialPost
   SocialPost      SocialPost[]
@@ -167,7 +177,8 @@ enum RequestStatus {
 // Modèle SocialPost (Marketing Studio)
 model SocialPost {
   id           String   @id @default(cuid())
-  
+  externalPostId String?
+
   // Relation Business
   businessId   String
   business     Business @relation(fields: [businessId], references: [id])

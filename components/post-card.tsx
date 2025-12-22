@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Copy, Check, Edit3, Share2, Camera, Info, Download } from "lucide-react";
+import { publishPost } from "@/app/actions/publish-post"; // ✅ IMPORT
 
 // Algorithme simple de conseil photo (Coach IA)
 const getPhotoAdvice = (businessType: string, reviewContent: string) => {
@@ -27,6 +28,7 @@ export function PostCard({ post }: { post: any }) {
     const [imageSrc, setImageSrc] = useState(post.imageUrl); // État pour l'image (URL ou Blob)
     const [imageFile, setImageFile] = useState<File | null>(null); // Le fichier réel pour le partage
     const [copied, setCopied] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,6 +73,25 @@ export function PostCard({ post }: { post: any }) {
 
         setTimeout(() => setCopied(false), 3000);
         alert("Texte copié ! L'image a été téléchargée. Vous pouvez maintenant créer votre post.");
+    };
+    export function PostCard({ post }: { post: any }) {
+    // ... états existants
+    const [isPublishing, setIsPublishing] = useState(false);
+
+    const handleAutoPublish = async () => {
+        if(!confirm("Voulez-vous vraiment publier ce post maintenant sur " + post.platform + " ?")) return;
+
+        setIsPublishing(true);
+        const result = await publishPost(post.id);
+        setIsPublishing(false);
+
+        if (result.success) {
+            alert("✅ Post publié avec succès !");
+            // Idéalement, rafraîchir la page ou mettre à jour l'état local
+            window.location.reload();
+        } else {
+            alert("❌ Erreur : " + result.error);
+        }
     };
 
     // Récupération du conseil contextuel
@@ -158,6 +179,15 @@ export function PostCard({ post }: { post: any }) {
                                 {copied ? <Check className="w-4 h-4"/> : (imageFile ? <Share2 className="w-4 h-4"/> : <Copy className="w-4 h-4"/>)}
                                 {copied ? "Copié !" : (imageFile ? "Partager sur Insta" : "Copier & Télécharger")}
                             </button>
+                            {/* BOUTON PUBLICATION AUTOMATIQUE */}
+    <button 
+        onClick={handleAutoPublish}
+        disabled={isPublishing || post.status === "PUBLISHED"}
+        className="bg-pink-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-pink-700 disabled:opacity-50"
+    >
+        {isPublishing ? <Loader2 className="animate-spin w-4 h-4"/> : <Rocket className="w-4 h-4"/>}
+        {post.status === "PUBLISHED" ? "En ligne" : "Publier Auto"}
+    </button>
                         </>
                     )}
                 </div>
