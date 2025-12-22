@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Copy, Check, Edit3, Share2, Camera, Info, Rocket, Loader2 } from "lucide-react";
-import { publishPost } from "@/app/actions/publish-post"; // ✅ Import de l'action serveur
+import { publishPost } from "@/app/actions/publish-post"; 
 
 // Algorithme simple de conseil photo (Coach IA)
 const getPhotoAdvice = (businessType: string, reviewContent: string) => {
@@ -22,7 +22,7 @@ const getPhotoAdvice = (businessType: string, reviewContent: string) => {
 };
 
 export function PostCard({ post }: { post: any }) {
-    // ÉTATS
+    // --- ÉTATS ---
     const [isEditing, setIsEditing] = useState(false);
     const [caption, setCaption] = useState(post.caption);
     
@@ -35,7 +35,9 @@ export function PostCard({ post }: { post: any }) {
     const [copied, setCopied] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
 
-    // 1. GESTION DE LA PHOTO
+    // --- LOGIQUE ---
+
+    // 1. Changement de photo
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -45,7 +47,7 @@ export function PostCard({ post }: { post: any }) {
         }
     };
 
-    // 2. PARTAGE MANUEL (Mobile / Copier-Coller)
+    // 2. Partage Manuel (Mobile / Copier-Coller)
     const handleShare = async () => {
         if (navigator.share && imageFile) {
             try {
@@ -63,10 +65,10 @@ export function PostCard({ post }: { post: any }) {
         navigator.clipboard.writeText(caption);
         setCopied(true);
         
-        // Téléchargement de l'image pour le PC
+        // Téléchargement pour PC
         const link = document.createElement('a');
         link.href = imageSrc;
-        link.download = `post-${post.platform.toLowerCase()}-${post.id}.jpg`;
+        link.download = `post-${post.platform?.toLowerCase() || 'social'}-${post.id}.jpg`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -75,7 +77,7 @@ export function PostCard({ post }: { post: any }) {
         alert("Texte copié ! L'image a été téléchargée.");
     };
 
-    // 3. PUBLICATION AUTO (API)
+    // 3. Publication Auto (API)
     const handleAutoPublish = async () => {
         if(!confirm("Voulez-vous vraiment publier ce post maintenant sur " + post.platform + " ?")) return;
 
@@ -91,11 +93,11 @@ export function PostCard({ post }: { post: any }) {
         }
     };
 
-    // Conseil IA
     const advice = post.business && post.review 
         ? getPhotoAdvice(post.business.type || "commerce", post.review.content) 
         : "📸 Mettez en valeur votre travail.";
 
+    // --- RENDER ---
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-full transition hover:shadow-xl">
             
@@ -107,7 +109,7 @@ export function PostCard({ post }: { post: any }) {
                 </span>
             </div>
 
-            {/* ZONE IMAGE */}
+            {/* Image */}
             <div className="relative h-64 bg-gray-100 group">
                 <img src={imageSrc} alt="Post visual" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
                 
@@ -124,7 +126,7 @@ export function PostCard({ post }: { post: any }) {
                 </div>
             </div>
 
-            {/* COACH IA */}
+            {/* Info Coach */}
             {post.imageUrl === imageSrc && post.status !== 'PUBLISHED' && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border-b border-blue-100 dark:border-blue-800 flex items-start gap-2">
                     <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -134,7 +136,7 @@ export function PostCard({ post }: { post: any }) {
                 </div>
             )}
 
-            {/* Contenu Texte */}
+            {/* Contenu */}
             <div className="p-5 flex-1 flex flex-col">
                 {isEditing ? (
                     <textarea 
@@ -148,24 +150,19 @@ export function PostCard({ post }: { post: any }) {
                     </p>
                 )}
 
-                {/* --- ZONE DES BOUTONS --- */}
+                {/* Actions */}
                 <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-gray-100 dark:border-gray-700">
-                    
                     {isEditing ? (
-                        // Mode Édition : Juste le bouton valider
                          <button onClick={() => setIsEditing(false)} className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-bold transition">
                             Valider le texte
                         </button>
                     ) : (
-                        // Mode Vue : Les options de publication
                         <>
                             <div className="flex gap-2">
-                                {/* Bouton Éditer (Petit) */}
                                 <button onClick={() => setIsEditing(true)} className="p-2.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 transition" title="Éditer le texte">
                                     <Edit3 className="w-4 h-4"/>
                                 </button>
                                 
-                                {/* Bouton PUBLIER AUTO (Principal) */}
                                 <button 
                                     onClick={handleAutoPublish}
                                     disabled={isPublishing || post.status === "PUBLISHED"}
@@ -176,7 +173,6 @@ export function PostCard({ post }: { post: any }) {
                                 </button>
                             </div>
 
-                            {/* Bouton PARTAGE MANUEL (Secondaire) */}
                             <button 
                                 onClick={handleShare} 
                                 className={`w-full text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition shadow-sm hover:shadow ${copied ? "bg-green-600" : "bg-gradient-to-r from-indigo-500 to-purple-500"}`}
