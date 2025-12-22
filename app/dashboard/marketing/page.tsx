@@ -5,27 +5,31 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PostGenerator } from "@/components/post-generator";
 import { PostCard } from "@/components/post-card";
 import Link from "next/link";
+import { CreatePostButton } from "@/components/marketing-client"; // ✅ Le bouton pour la création libre
 
 export default async function MarketingPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
+  // Récupérer le business avec :
+  // 1. Les 3 meilleurs avis récents (pour les suggestions)
+  // 2. L'historique des posts (pour la galerie)
   const business = await prisma.business.findFirst({
     where: { userId },
     include: { 
-        // On récupère 3 avis 5 étoiles récents pour générer des idées
+        // Pour la zone "Idées du jour"
         reviews: { 
             where: { rating: 5 },
             take: 3,
             orderBy: { reviewDate: 'desc' }
         },
-       // 👇 C'EST ICI QU'IL FALLAIT METTRE LE CODE
+        // Pour la zone "Vos Brouillons & Publications"
         SocialPost: {
-            orderBy: { createdAt: 'desc' },
+            orderBy: { updatedAt: 'desc' }, // ✅ Tri par date de mise à jour (plus pratique)
             include: { 
-                review: true,   // ✅ On inclut l'avis pour le contexte
-                business: true  // ✅ On inclut le business pour le type (Garage/Boulangerie)
-                }
+                review: true,   // Pour afficher le contexte de l'avis si lié
+                business: true  // Pour que le PostCard ait accès au type de business (Garage, etc.)
+            }
         }
     }
   });
@@ -38,14 +42,23 @@ export default async function MarketingPage() {
         
         <Breadcrumbs />
 
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* HEADER AVEC BOUTON D'ACTION */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">🚀 Studio Marketing IA</h1>
-                <p className="text-gray-500 mt-1">Transformez vos meilleurs avis en posts Instagram & Facebook en 1 clic.</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    🚀 Studio Marketing IA
+                </h1>
+                <p className="text-gray-500 mt-1">
+                    Transformez vos avis en posts ou générez du contenu à la volée.
+                </p>
             </div>
+            
+            {/* ✅ LE BOUTON DE CRÉATION LIBRE (Nouveau) */}
+            <CreatePostButton />
         </div>
 
-        {/* --- ZONE 1 : GÉNÉRATEUR --- */}
+        {/* --- ZONE 1 : SUGGESTIONS (Review to Post) --- */}
+        {/* On n'affiche cette zone que s'il y a des avis 5 étoiles disponibles */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white shadow-lg">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                 ✨ Idées du jour (Basées sur vos avis 5★)
@@ -57,7 +70,7 @@ export default async function MarketingPage() {
                     ))
                 ) : (
                     <div className="col-span-3 text-center py-8 bg-white/10 rounded-lg">
-                        <p className="mb-2">Pas encore d'avis 5 étoiles à transformer.</p>
+                        <p className="mb-2">Pas encore d'avis 5 étoiles récents à transformer.</p>
                         <Link href="/dashboard/reviews" className="underline font-bold hover:text-indigo-200">
                             Importer des avis d'abord
                         </Link>
@@ -66,7 +79,7 @@ export default async function MarketingPage() {
             </div>
         </div>
 
-        {/* --- ZONE 2 : MES POSTS --- */}
+        {/* --- ZONE 2 : GALERIE (Brouillons & Publiés) --- */}
         <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">📅 Vos Brouillons & Publications</h2>
             
@@ -80,7 +93,9 @@ export default async function MarketingPage() {
                 <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
                     <div className="text-4xl mb-4">🎨</div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">Votre galerie est vide</h3>
-                    <p className="text-gray-500">Cliquez sur "Générer un post" ci-dessus pour commencer.</p>
+                    <p className="text-gray-500 mt-2">
+                        Utilisez le bouton <strong>"Nouveau Post IA"</strong> ou transformez un avis ci-dessus.
+                    </p>
                 </div>
             )}
         </div>
