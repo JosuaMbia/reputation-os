@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Copy, Check, Edit3, Share2, Camera, Info, Download } from "lucide-react";
-import { publishPost } from "@/app/actions/publish-post"; // ✅ IMPORT
+import { Copy, Check, Edit3, Share2, Camera, Info, Rocket, Loader2 } from "lucide-react";
+import { publishPost } from "@/app/actions/publish-post"; // ✅ Import de l'action serveur
 
 // Algorithme simple de conseil photo (Coach IA)
 const getPhotoAdvice = (businessType: string, reviewContent: string) => {
@@ -10,42 +10,43 @@ const getPhotoAdvice = (businessType: string, reviewContent: string) => {
     const type = businessType.toLowerCase();
 
     if (type.includes("garage") || type.includes("auto")) {
-        if (content.includes("rapide") || content.includes("urgence")) return "📸 Conseil : Prenez une photo d'une réparation en cours ou d'une clé à molette posée sur un pneu. L'action rassure sur la rapidité.";
-        if (content.includes("accueil") || content.includes("sympa")) return "📸 Conseil : Un selfie souriant de l'équipe ou une photo de l'accueil/café offert.";
-        return "📸 Conseil : Une belle voiture propre devant l'enseigne ou sur le pont.";
+        if (content.includes("rapide") || content.includes("urgence")) return "📸 Conseil : Prenez une photo d'une réparation en cours ou d'une clé à molette posée sur un pneu.";
+        if (content.includes("accueil") || content.includes("sympa")) return "📸 Conseil : Un selfie souriant de l'équipe ou une photo de l'accueil.";
+        return "📸 Conseil : Une belle voiture propre devant l'enseigne.";
     }
     if (type.includes("boulangerie") || type.includes("resto") || type.includes("food")) {
-        if (content.includes("frais") || content.includes("chaud")) return "📸 Conseil : Faites un gros plan sur le produit (focus) avec un fond flou. La fumée ou la texture doivent se voir.";
+        if (content.includes("frais") || content.includes("chaud")) return "📸 Conseil : Gros plan sur le produit avec un fond flou. La texture doit se voir.";
         return "📸 Conseil : Une vue d'ensemble de la vitrine bien remplie.";
     }
-    // Défaut
-    return "📸 Conseil : Montrez le produit mentionné dans l'avis ou votre équipe en action. La lumière naturelle est votre meilleure amie !";
+    return "📸 Conseil : Montrez le produit mentionné dans l'avis ou votre équipe en action. Lumière naturelle recommandée !";
 };
 
 export function PostCard({ post }: { post: any }) {
+    // ÉTATS
     const [isEditing, setIsEditing] = useState(false);
     const [caption, setCaption] = useState(post.caption);
-    const [imageSrc, setImageSrc] = useState(post.imageUrl); // État pour l'image (URL ou Blob)
-    const [imageFile, setImageFile] = useState<File | null>(null); // Le fichier réel pour le partage
-    const [copied, setCopied] = useState(false);
-    const [isPublishing, setIsPublishing] = useState(false);
     
+    // États Image
+    const [imageSrc, setImageSrc] = useState(post.imageUrl);
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 1. GESTION DE LA PHOTO (Upload ou Caméra)
+    // États Actions
+    const [copied, setCopied] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
+
+    // 1. GESTION DE LA PHOTO
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             setImageFile(file);
-            // Création d'une URL locale pour prévisualisation immédiate
             const objectUrl = URL.createObjectURL(file);
             setImageSrc(objectUrl);
         }
     };
 
-    // 2. FONCTION DE PARTAGE INTELLIGENT
+    // 2. PARTAGE MANUEL (Mobile / Copier-Coller)
     const handleShare = async () => {
-        // A. SUR MOBILE (Partage natif Image + Texte vers Insta/FB)
         if (navigator.share && imageFile) {
             try {
                 await navigator.share({
@@ -55,29 +56,26 @@ export function PostCard({ post }: { post: any }) {
                 });
                 return;
             } catch (err) {
-                console.log("Partage annulé ou non supporté, passage en mode manuel.");
+                console.log("Partage annulé ou non supporté.");
             }
         }
 
-        // B. SUR DESKTOP (Fallback : Copie Texte + Téléchargement Image)
         navigator.clipboard.writeText(caption);
         setCopied(true);
         
-        // Téléchargement forcé de l'image
+        // Téléchargement de l'image pour le PC
         const link = document.createElement('a');
         link.href = imageSrc;
-        link.download = `post-instagram-${post.id}.jpg`;
+        link.download = `post-${post.platform.toLowerCase()}-${post.id}.jpg`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
         setTimeout(() => setCopied(false), 3000);
-        alert("Texte copié ! L'image a été téléchargée. Vous pouvez maintenant créer votre post.");
+        alert("Texte copié ! L'image a été téléchargée.");
     };
-    export function PostCard({ post }: { post: any }) {
-    // ... états existants
-    const [isPublishing, setIsPublishing] = useState(false);
 
+    // 3. PUBLICATION AUTO (API)
     const handleAutoPublish = async () => {
         if(!confirm("Voulez-vous vraiment publier ce post maintenant sur " + post.platform + " ?")) return;
 
@@ -87,14 +85,13 @@ export function PostCard({ post }: { post: any }) {
 
         if (result.success) {
             alert("✅ Post publié avec succès !");
-            // Idéalement, rafraîchir la page ou mettre à jour l'état local
-            window.location.reload();
+            window.location.reload(); 
         } else {
-            alert("❌ Erreur : " + result.error);
+            alert("❌ Erreur (Configuration requise) : " + result.error);
         }
     };
 
-    // Récupération du conseil contextuel
+    // Conseil IA
     const advice = post.business && post.review 
         ? getPhotoAdvice(post.business.type || "commerce", post.review.content) 
         : "📸 Mettez en valeur votre travail.";
@@ -103,19 +100,19 @@ export function PostCard({ post }: { post: any }) {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-full transition hover:shadow-xl">
             
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-3 flex justify-between items-center text-white text-xs font-bold px-4">
-                <span className="flex items-center gap-1"><Share2 className="w-3 h-3"/> INSTAGRAM</span>
-                <span className="bg-black/20 px-2 py-0.5 rounded-full backdrop-blur-sm">BROUILLON</span>
+            <div className={`p-3 flex justify-between items-center text-white text-xs font-bold px-4 ${post.status === 'PUBLISHED' ? 'bg-green-600' : 'bg-gradient-to-r from-purple-600 to-pink-600'}`}>
+                <span className="flex items-center gap-1"><Share2 className="w-3 h-3"/> {post.platform}</span>
+                <span className="bg-black/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    {post.status === 'PUBLISHED' ? 'EN LIGNE' : 'BROUILLON'}
+                </span>
             </div>
 
-            {/* ZONE IMAGE + CAMÉRA */}
+            {/* ZONE IMAGE */}
             <div className="relative h-64 bg-gray-100 group">
                 <img src={imageSrc} alt="Post visual" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
                 
-                {/* Overlay au survol ou si mode édition */}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-2 p-4 text-center">
                     <p className="text-white text-xs font-medium max-w-xs">{advice}</p>
-                    
                     <button 
                         onClick={() => fileInputRef.current?.click()}
                         className="bg-white text-gray-900 px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 hover:bg-gray-100 transition transform hover:scale-105"
@@ -123,20 +120,12 @@ export function PostCard({ post }: { post: any }) {
                         <Camera className="w-4 h-4" />
                         Remplacer la photo
                     </button>
-                    
-                    {/* Input caché qui gère aussi la caméra mobile via accept="image/*" */}
-                    <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handlePhotoChange} 
-                        className="hidden" 
-                        accept="image/*"
-                    />
+                    <input type="file" ref={fileInputRef} onChange={handlePhotoChange} className="hidden" accept="image/*" />
                 </div>
             </div>
 
-            {/* COACH IA (Visible si on édite ou si image par défaut) */}
-            {post.imageUrl === imageSrc && (
+            {/* COACH IA */}
+            {post.imageUrl === imageSrc && post.status !== 'PUBLISHED' && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border-b border-blue-100 dark:border-blue-800 flex items-start gap-2">
                     <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                     <p className="text-xs text-blue-800 dark:text-blue-200 font-medium leading-relaxed">
@@ -145,7 +134,7 @@ export function PostCard({ post }: { post: any }) {
                 </div>
             )}
 
-            {/* Contenu */}
+            {/* Contenu Texte */}
             <div className="p-5 flex-1 flex flex-col">
                 {isEditing ? (
                     <textarea 
@@ -159,35 +148,42 @@ export function PostCard({ post }: { post: any }) {
                     </p>
                 )}
 
-                {/* Actions */}
-                <div className="flex gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-gray-700">
+                {/* --- ZONE DES BOUTONS --- */}
+                <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-gray-100 dark:border-gray-700">
+                    
                     {isEditing ? (
-                        <button onClick={() => setIsEditing(false)} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-bold transition">
+                        // Mode Édition : Juste le bouton valider
+                         <button onClick={() => setIsEditing(false)} className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-bold transition">
                             Valider le texte
                         </button>
                     ) : (
+                        // Mode Vue : Les options de publication
                         <>
-                            <button onClick={() => setIsEditing(true)} className="p-2.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 transition" title="Éditer le texte">
-                                <Edit3 className="w-4 h-4"/>
-                            </button>
-                            
-                            {/* BOUTON MAGIC SHARE */}
+                            <div className="flex gap-2">
+                                {/* Bouton Éditer (Petit) */}
+                                <button onClick={() => setIsEditing(true)} className="p-2.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 transition" title="Éditer le texte">
+                                    <Edit3 className="w-4 h-4"/>
+                                </button>
+                                
+                                {/* Bouton PUBLIER AUTO (Principal) */}
+                                <button 
+                                    onClick={handleAutoPublish}
+                                    disabled={isPublishing || post.status === "PUBLISHED"}
+                                    className="flex-1 bg-pink-600 text-white py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm hover:shadow-pink-200"
+                                >
+                                    {isPublishing ? <Loader2 className="animate-spin w-4 h-4"/> : <Rocket className="w-4 h-4"/>}
+                                    {post.status === "PUBLISHED" ? "En ligne" : "Publier Auto"}
+                                </button>
+                            </div>
+
+                            {/* Bouton PARTAGE MANUEL (Secondaire) */}
                             <button 
                                 onClick={handleShare} 
-                                className={`flex-1 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition shadow-md hover:shadow-lg ${copied ? "bg-green-600" : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"}`}
+                                className={`w-full text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition shadow-sm hover:shadow ${copied ? "bg-green-600" : "bg-gradient-to-r from-indigo-500 to-purple-500"}`}
                             >
                                 {copied ? <Check className="w-4 h-4"/> : (imageFile ? <Share2 className="w-4 h-4"/> : <Copy className="w-4 h-4"/>)}
-                                {copied ? "Copié !" : (imageFile ? "Partager sur Insta" : "Copier & Télécharger")}
+                                {copied ? "Copié !" : "Partage Manuel / Mobile"}
                             </button>
-                            {/* BOUTON PUBLICATION AUTOMATIQUE */}
-    <button 
-        onClick={handleAutoPublish}
-        disabled={isPublishing || post.status === "PUBLISHED"}
-        className="bg-pink-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-pink-700 disabled:opacity-50"
-    >
-        {isPublishing ? <Loader2 className="animate-spin w-4 h-4"/> : <Rocket className="w-4 h-4"/>}
-        {post.status === "PUBLISHED" ? "En ligne" : "Publier Auto"}
-    </button>
                         </>
                     )}
                 </div>
