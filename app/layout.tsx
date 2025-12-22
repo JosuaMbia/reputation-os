@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from '@clerk/nextjs';
-import { Toaster } from 'sonner'; // ✅ Pour les notifications
+import { Toaster } from 'sonner'; 
+import { AICopilot } from "@/components/ai-copilot"; // ✅ IL EST DE RETOUR
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,10 +21,13 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="fr">
         <body className={inter.className}>
-          {/* Le contenu de votre application */}
+          {/* Le contenu principal de votre application */}
           {children}
           
-          {/* ✅ Le gestionnaire de notifications (indispensable pour le module marketing) */}
+          {/* ✅ LE COPILOT FLOTTANT (Central) */}
+          <AICopilot />
+
+          {/* ✅ Les notifications Toast (Indispensable pour le marketing) */}
           <Toaster position="bottom-center" richColors closeButton />
         </body>
       </html>
