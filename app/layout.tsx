@@ -1,40 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { AICopilot } from "@/components/ai-copilot"; // ✅ Import du Copilot
-import { Toaster } from 'sonner'; // ✅ IMPORT POUR TOASTER
+import { ClerkProvider } from '@clerk/nextjs';
+import { Toaster } from 'sonner'; // ✅ Pour les notifications
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Reputation OS",
-  description: "Gérez vos avis clients.",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <ClerkProvider>
-    <html lang="fr">
-      <body className={inter.className}>
-        {children}
-        <Toaster position="bottom-center" richColors closeButton /> {/* ✅ AJOUT ICI */}
-      </body>
-    </html>
-    </ClerkProvider>
-  );
-}
-
-export const metadata: Metadata = {
-  title: "Reputation OS - Gestion intelligente des avis Google",
-  description: "SaaS intelligent pour gérer les avis Google avec IA",
-  icons: {
-    icon: '/logo.png',
-  },
+  description: "Gérez vos avis clients avec l'IA.",
 };
 
 export default function RootLayout({
@@ -46,11 +20,11 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="fr">
         <body className={inter.className}>
-          {/* Le contenu de votre site */}
+          {/* Le contenu de votre application */}
           {children}
           
-          {/* ✅ Le Copilot est ajouté ici. Il s'affichera par-dessus toutes les pages */}
-          <AICopilot />
+          {/* ✅ Le gestionnaire de notifications (indispensable pour le module marketing) */}
+          <Toaster position="bottom-center" richColors closeButton />
         </body>
       </html>
     </ClerkProvider>
