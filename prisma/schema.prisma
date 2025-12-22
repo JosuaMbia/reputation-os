@@ -80,7 +80,7 @@ model Business {
   linkedinAccessToken   String? @db.Text
   linkedinUrn           String? // L'identifiant unique de la personne/page LinkedIn
   
-  // ✅ CORRECTION 1 : Ajout de la relation inverse vers SocialPost
+  // Relation vers SocialPost
   SocialPost      SocialPost[]
   
   createdAt       DateTime @default(now())
@@ -92,7 +92,7 @@ model Review {
   // Champs pour l'unicité (utilisés par le scraper)
   id              String    @id @default(cuid())
   
-  // ✅ AJOUT IMPORTANT : Champs utilisés par votre script d'import (import-reviews.ts)
+  // Champs utilisés par votre script d'import
   source          String    @default("google") 
   externalId      String    @default("")      
   
@@ -121,7 +121,7 @@ model Review {
   updatedAt       DateTime  @updatedAt
   
   @@index([businessId])
-  // ✅ AJOUT : Contrainte d'unicité composite pour éviter les doublons d'avis
+  // Contrainte d'unicité composite pour éviter les doublons d'avis
   @@unique([source, externalId])
 }
 
@@ -177,13 +177,13 @@ enum RequestStatus {
 // Modèle SocialPost (Marketing Studio)
 model SocialPost {
   id           String   @id @default(cuid())
-  externalPostId String?
+  externalPostId String? // ID renvoyé par Facebook/LinkedIn après publication
 
   // Relation Business
   businessId   String
   business     Business @relation(fields: [businessId], references: [id])
   
-  // ✅ CORRECTION 2 : Ajout de la relation vers Review
+  // Relation vers Review
   reviewId     String?
   review       Review?  @relation(fields: [reviewId], references: [id])
   
@@ -195,7 +195,14 @@ model SocialPost {
   // Gestion
   status       String   @default("DRAFT") 
   scheduledFor DateTime? 
+  publishedAt  DateTime? // ✅ Date réelle de publication
   
+  // ✅ NOUVEAU : STATISTIQUES (Pour la V2)
+  statsLikes       Int       @default(0)
+  statsViews       Int       @default(0)
+  statsClicks      Int       @default(0)
+  statsLastUpdated DateTime? // Pour savoir quand on a mis à jour les stats
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

@@ -3,8 +3,31 @@ import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { AICopilot } from "@/components/ai-copilot"; // ✅ Import du Copilot
+import { Toaster } from 'sonner'; // ✅ IMPORT POUR TOASTER
 
 const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Reputation OS",
+  description: "Gérez vos avis clients.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <ClerkProvider>
+    <html lang="fr">
+      <body className={inter.className}>
+        {children}
+        <Toaster position="bottom-center" richColors closeButton /> {/* ✅ AJOUT ICI */}
+      </body>
+    </html>
+    </ClerkProvider>
+  );
+}
 
 export const metadata: Metadata = {
   title: "Reputation OS - Gestion intelligente des avis Google",
