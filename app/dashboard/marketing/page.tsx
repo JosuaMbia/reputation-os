@@ -5,30 +5,38 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PostGenerator } from "@/components/post-generator";
 import { PostCard } from "@/components/post-card";
 import Link from "next/link";
-import { CreatePostButton } from "@/components/marketing-client"; // ✅ Le bouton pour la création libre
+import { CreatePostButton } from "@/components/marketing-client";
+import { MarketingStats } from "@/components/marketing-stats"; 
 
-export default async function MarketingPage() {
+// Interface pour Next.js 15+ (Params as Promise)
+interface MarketingPageProps {
+    searchParams: Promise<{ tab?: string }>;
+}
+
+export default async function MarketingPage(props: MarketingPageProps) {
+  // Résolution asynchrone des paramètres (Standard V1 Next.js 15)
+  const searchParams = await props.searchParams;
+  const tab = searchParams.tab || "create"; 
+
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  // Récupérer le business avec :
-  // 1. Les 3 meilleurs avis récents (pour les suggestions)
-  // 2. L'historique des posts (pour la galerie)
+  // Récupération optimisée des données
   const business = await prisma.business.findFirst({
     where: { userId },
     include: { 
-        // Pour la zone "Idées du jour"
+        // 3 derniers avis 5★ pour les suggestions
         reviews: { 
             where: { rating: 5 },
             take: 3,
             orderBy: { reviewDate: 'desc' }
         },
-        // Pour la zone "Vos Brouillons & Publications"
+        // Historique des posts (Du plus récent au plus ancien)
         SocialPost: {
-            orderBy: { updatedAt: 'desc' }, // ✅ Tri par date de mise à jour (plus pratique)
+            orderBy: { updatedAt: 'desc' },
             include: { 
-                review: true,   // Pour afficher le contexte de l'avis si lié
-                business: true  // Pour que le PostCard ait accès au type de business (Garage, etc.)
+                review: true,
+                business: true 
             }
         }
     }
@@ -42,63 +50,87 @@ export default async function MarketingPage() {
         
         <Breadcrumbs />
 
-        {/* HEADER AVEC BOUTON D'ACTION */}
+        {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     🚀 Studio Marketing IA
                 </h1>
                 <p className="text-gray-500 mt-1">
-                    Transformez vos avis en posts ou générez du contenu à la volée.
+                    Pilotez votre stratégie Social Media : Création, Publication et Analyse.
                 </p>
             </div>
             
-            {/* ✅ LE BOUTON DE CRÉATION LIBRE (Nouveau) */}
-            <CreatePostButton />
+            {/* Bouton d'action (Uniquement sur l'onglet création) */}
+            {tab === 'create' && <CreatePostButton />}
         </div>
 
-        {/* --- ZONE 1 : SUGGESTIONS (Review to Post) --- */}
-        {/* On n'affiche cette zone que s'il y a des avis 5 étoiles disponibles */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                ✨ Idées du jour (Basées sur vos avis 5★)
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {business.reviews.length > 0 ? (
-                    business.reviews.map(review => (
-                        <PostGenerator key={review.id} review={review} />
-                    ))
-                ) : (
-                    <div className="col-span-3 text-center py-8 bg-white/10 rounded-lg">
-                        <p className="mb-2">Pas encore d'avis 5 étoiles récents à transformer.</p>
-                        <Link href="/dashboard/reviews" className="underline font-bold hover:text-indigo-200">
-                            Importer des avis d'abord
-                        </Link>
+        {/* NAVIGATION ONGLETS */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+            <Link 
+                href="/dashboard/marketing?tab=create" 
+                className={`px-6 py-3 text-sm font-bold border-b-2 transition ${tab === 'create' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+                🎨 Création & Brouillons
+            </Link>
+            <Link 
+                href="/dashboard/marketing?tab=stats" 
+                className={`px-6 py-3 text-sm font-bold border-b-2 transition ${tab === 'stats' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+                📊 Performances
+            </Link>
+        </div>
+
+        {/* CONTENU */}
+        {tab === 'create' ? (
+            <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500">
+                
+                {/* SECTION 1 : SUGGESTIONS INTELLIGENTES */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        ✨ Suggestions IA (Basées sur vos avis 5★)
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {business.reviews.length > 0 ? (
+                            business.reviews.map(review => (
+                                <PostGenerator key={review.id} review={review} />
+                            ))
+                        ) : (
+                            <div className="col-span-3 text-center py-8 bg-white/10 rounded-lg backdrop-blur-sm">
+                                <p className="mb-2 text-indigo-100">Aucun avis 5 étoiles récent à transformer.</p>
+                                <Link href="/dashboard/reviews" className="underline font-bold hover:text-white transition">
+                                    Importer des avis Google
+                                </Link>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
-        </div>
+                </div>
 
-        {/* --- ZONE 2 : GALERIE (Brouillons & Publiés) --- */}
-        <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">📅 Vos Brouillons & Publications</h2>
-            
-            {business.SocialPost.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {business.SocialPost.map(post => (
-                        <PostCard key={post.id} post={post} />
-                    ))}
+                {/* SECTION 2 : GALERIE DE POSTS */}
+                <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">📅 Vos Contenus</h2>
+                    
+                    {business.SocialPost.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {business.SocialPost.map(post => (
+                                <PostCard key={post.id} post={post} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+                            <div className="text-4xl mb-4 opacity-50">🎨</div>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Aucun post pour le moment</h3>
+                            <p className="text-gray-500 mt-2 max-w-md mx-auto">
+                                Commencez par cliquer sur <strong>"Nouveau Post IA"</strong> ou transformez un avis client en visuel.
+                            </p>
+                        </div>
+                    )}
                 </div>
-            ) : (
-                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-                    <div className="text-4xl mb-4">🎨</div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Votre galerie est vide</h3>
-                    <p className="text-gray-500 mt-2">
-                        Utilisez le bouton <strong>"Nouveau Post IA"</strong> ou transformez un avis ci-dessus.
-                    </p>
-                </div>
-            )}
-        </div>
+            </div>
+        ) : (
+            // SECTION STATISTIQUES
+            <MarketingStats />
+        )}
 
       </div>
     </div>
