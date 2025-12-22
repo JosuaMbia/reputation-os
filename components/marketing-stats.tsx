@@ -101,7 +101,7 @@ export function MarketingStats() {
                         </p>
                         <div className="bg-white/10 p-3 rounded-lg text-xs space-y-2">
                             <p>✅ <strong>Top Format :</strong> Carrousel</p>
-                            <p>❌ <strong>À éviter :</strong> Textes trop longs (> 3 lignes)</p>
+                            <p>❌ <strong>À éviter :</strong> Textes trop longs (&gt; 3 lignes)</p>
                         </div>
                     </div>
                     <button className="w-full bg-white text-indigo-900 font-bold py-2 rounded-lg text-sm mt-4 hover:bg-indigo-50 transition">
