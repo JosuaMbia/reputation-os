@@ -47,7 +47,27 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
     // Vérification de l'état des connexions (Basé sur la présence des tokens)
     const isFbConnected = !!initialData?.facebookAccessToken;
     const isLiConnected = !!initialData?.linkedinAccessToken;
+    
 
+    const handleConnectFacebook = () => {
+        const APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID; // ⚠️ On va devoir l'ajouter aux env publics
+        // URL de redirection (doit correspondre exactement à celle déclarée sur Meta)
+        const REDIRECT_URI = `${window.location.origin}/api/auth/facebook/callback`;
+        
+        // Permissions demandées (Scopes)
+        // pages_manage_posts : Pour publier sur FB
+        // pages_read_engagement : Pour lire les stats
+        // instagram_basic + instagram_content_publish : Pour Insta
+        const SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish";
+        
+        // Construction de l'URL OAuth
+        const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${APP_ID}&redirect_uri=${REDIRECT_URI}&scope=${SCOPE}&response_type=code&state=reputation_os_connect`;
+        
+        // Redirection
+        window.location.href = authUrl;
+    };
+    
+  
     return (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
             
