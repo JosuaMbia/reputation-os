@@ -117,9 +117,13 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
                                 </button>
                             ) : (
                                 // NOTE: Ici, vous devrez mettre le vrai lien OAuth vers Facebook plus tard
-                                <button type="button" onClick={() => toast.info("Intégration OAuth à venir")} className="w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition">
-                                    Connecter le compte
-                                </button>
+                                <button 
+                                   type="button" 
+                                   onClick={handleConnectFacebook} // ✅ On appelle enfin la vraie fonction !
+                                   className="w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition"
+                      >
+                                 Connecter le compte
+                                  </button>
                             )}
                         </div>
 
